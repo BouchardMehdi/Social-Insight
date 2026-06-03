@@ -1,6 +1,8 @@
 from functools import lru_cache
 
+from app.config.settings import Settings, get_settings
 from app.repositories.base import PostRepository
+from app.repositories.bigquery import BigQueryPostRepository
 from app.repositories.memory import InMemoryPostRepository
 from app.services.nlp import NLPAnalyzer, SpacyNLPAnalyzer
 from app.services.posts import PostService
@@ -14,7 +16,10 @@ def get_nlp_analyzer() -> NLPAnalyzer:
 
 @lru_cache
 def get_post_repository() -> PostRepository:
-    return InMemoryPostRepository()
+    settings: Settings = get_settings()
+    if settings.storage_backend == "memory":
+        return InMemoryPostRepository()
+    return BigQueryPostRepository(settings)
 
 
 def get_post_service() -> PostService:

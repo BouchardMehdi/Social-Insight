@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     app_name: str = "Social Insight Platform"
     api_prefix: str = "/api"
     environment: str = "local"
-    storage_backend: Literal["memory"] = "memory"
+    storage_backend: Literal["bigquery", "memory"] = "bigquery"
 
     google_cloud_project: str | None = None
     bigquery_dataset: str = "social_insight"
