@@ -53,6 +53,13 @@ docker compose up --build
 
 Par défaut, Docker Compose utilise `SOCIAL_INSIGHT_STORAGE_BACKEND=memory` pour permettre une démo locale sans compte Google Cloud. Pour utiliser BigQuery, remplacez cette variable par `bigquery`, ajoutez `SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT`, puis montez vos credentials Google via `GOOGLE_APPLICATION_CREDENTIALS`.
 
+Le mode Docker active aussi un seed de démonstration :
+
+- `SOCIAL_INSIGHT_SEED_ON_STARTUP=true`
+- `SOCIAL_INSIGHT_SEED_POSTS_COUNT=600`
+
+Au démarrage, l'API génère automatiquement des posts simulés sur plusieurs plateformes, auteurs, sentiments et dates récentes. Le seed ne s'exécute pas si le datastore contient déjà des posts.
+
 URLs locales :
 
 - Frontend : http://localhost:5173
@@ -72,6 +79,8 @@ Variables principales :
 
 ```bash
 SOCIAL_INSIGHT_STORAGE_BACKEND=bigquery
+SOCIAL_INSIGHT_SEED_ON_STARTUP=false
+SOCIAL_INSIGHT_SEED_POSTS_COUNT=600
 SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 SOCIAL_INSIGHT_BIGQUERY_DATASET=social_insight
 SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE=posts

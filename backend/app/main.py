@@ -4,14 +4,20 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.dependencies import get_post_repository
+from app.api.dependencies import get_nlp_analyzer, get_post_repository
 from app.api.router import api_router
 from app.config.settings import get_settings
+from app.services.seed import DemoSeedService
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    get_post_repository().initialize()
+    repository = get_post_repository()
+    repository.initialize()
+    if settings.seed_on_startup:
+        DemoSeedService(repository=repository, analyzer=get_nlp_analyzer()).seed_if_needed(
+            settings.seed_posts_count
+        )
     yield
 
 

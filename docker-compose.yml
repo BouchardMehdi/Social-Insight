@@ -5,6 +5,8 @@ services:
     environment:
       SOCIAL_INSIGHT_ENVIRONMENT: local
       SOCIAL_INSIGHT_STORAGE_BACKEND: memory
+      SOCIAL_INSIGHT_SEED_ON_STARTUP: "true"
+      SOCIAL_INSIGHT_SEED_POSTS_COUNT: 600
       SOCIAL_INSIGHT_CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
     ports:
       - "8000:8000"
