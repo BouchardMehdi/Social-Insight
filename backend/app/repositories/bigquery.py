@@ -4,6 +4,7 @@ from google.api_core.exceptions import NotFound
 from google.cloud import bigquery
 
 from app.config.settings import Settings
+from app.core.exceptions import RepositoryError, StorageConfigurationError
 from app.repositories.base import PostRepository
 from app.schemas.posts import PostFilters, PostRead
 from app.schemas.stats import ActivityPoint, SentimentDistribution, SummaryStats, TopKeyword
@@ -12,7 +13,9 @@ from app.schemas.stats import ActivityPoint, SentimentDistribution, SummaryStats
 class BigQueryPostRepository(PostRepository):
     def __init__(self, settings: Settings) -> None:
         if not settings.google_cloud_project:
-            raise ValueError("SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT is required for BigQuery storage.")
+            raise StorageConfigurationError(
+                "SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT is required for BigQuery storage."
+            )
 
         self.settings = settings
         self.client = bigquery.Client(project=settings.google_cloud_project)
@@ -27,7 +30,7 @@ class BigQueryPostRepository(PostRepository):
         payload = post.model_dump(mode="json")
         errors = self.client.insert_rows_json(self.table_id, [payload])
         if errors:
-            raise RuntimeError(f"BigQuery insertion failed: {errors}")
+            raise RepositoryError("BigQuery insertion failed.", details=errors)
         return post
 
     def list_posts(self, filters: PostFilters) -> tuple[list[PostRead], int]:

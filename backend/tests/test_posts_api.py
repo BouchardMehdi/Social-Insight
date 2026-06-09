@@ -98,7 +98,8 @@ def test_get_post_returns_404_for_unknown_id(client: TestClient) -> None:
     response = client.get("/api/posts/unknown-id")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Post not found"
+    assert response.json()["error"]["code"] == "post_not_found"
+    assert response.json()["error"]["message"] == "Post not found"
 
 
 def test_create_post_rejects_invalid_payload(client: TestClient) -> None:
@@ -108,3 +109,4 @@ def test_create_post_rejects_invalid_payload(client: TestClient) -> None:
     )
 
     assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"

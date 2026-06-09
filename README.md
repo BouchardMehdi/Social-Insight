@@ -81,6 +81,7 @@ Variables principales :
 SOCIAL_INSIGHT_STORAGE_BACKEND=bigquery
 SOCIAL_INSIGHT_SEED_ON_STARTUP=false
 SOCIAL_INSIGHT_SEED_POSTS_COUNT=600
+SOCIAL_INSIGHT_LOG_LEVEL=INFO
 SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT=your-gcp-project-id
 SOCIAL_INSIGHT_BIGQUERY_DATASET=social_insight
 SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE=posts
@@ -158,6 +159,22 @@ poetry run pytest
 ```
 
 Les tests utilisent le repository mémoire pour éviter de dépendre d'un compte Google Cloud.
+
+## Erreurs et logs
+
+L'API renvoie les erreurs dans un format stable :
+
+```json
+{
+  "error": {
+    "code": "post_not_found",
+    "message": "Post not found",
+    "request_id": "..."
+  }
+}
+```
+
+Chaque réponse inclut l'en-tête `X-Request-ID`. Si un client fournit déjà cet en-tête, l'API le propage. Les logs backend sont structurés en JSON avec méthode HTTP, chemin, statut, durée et identifiant de requête.
 
 ## Préparation Cloud Run
 

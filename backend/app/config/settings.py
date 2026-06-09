@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     storage_backend: Literal["bigquery", "memory"] = "bigquery"
     seed_on_startup: bool = False
     seed_posts_count: int = Field(default=600, ge=0, le=5000)
+    log_level: str = "INFO"
 
     google_cloud_project: str | None = None
     bigquery_dataset: str = "social_insight"

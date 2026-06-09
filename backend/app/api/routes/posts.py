@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query, status
 
 from app.api.dependencies import get_post_service
-from app.schemas.posts import PostCreate, PostFilters, PostListResponse, PostRead
+from app.core.exceptions import NotFoundError
 from app.schemas.nlp import Sentiment
+from app.schemas.posts import PostCreate, PostFilters, PostListResponse, PostRead
 from app.services.posts import PostService
 
 router = APIRouter(prefix="/posts")
@@ -39,5 +40,5 @@ def list_posts(
 def get_post(post_id: str, service: PostService = Depends(get_post_service)) -> PostRead:
     post = service.get_post(post_id)
     if not post:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
+        raise NotFoundError(resource="post", identifier=post_id)
     return post
