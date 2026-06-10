@@ -43,22 +43,46 @@ class BigQueryPostRepository(PostRepository):
         )
 
         count_sql = f"SELECT COUNT(*) AS total FROM `{self.table_id}` {where_sql}"
-        count_job = self.client.query(count_sql, job_config=bigquery.QueryJobConfig(query_parameters=params[:-2]))
+        count_job = self.client.query(
+            count_sql,
+            job_config=bigquery.QueryJobConfig(query_parameters=params[:-2]),
+        )
         total = next(iter(count_job.result())).total
 
         sql = f"""
-            SELECT id, platform, author, content, language, sentiment, keywords, created_at, inserted_at
+            SELECT
+                id,
+                platform,
+                author,
+                content,
+                language,
+                sentiment,
+                keywords,
+                created_at,
+                inserted_at
             FROM `{self.table_id}`
             {where_sql}
             ORDER BY created_at DESC
             LIMIT @limit OFFSET @offset
         """
-        rows = self.client.query(sql, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
+        rows = self.client.query(
+            sql,
+            job_config=bigquery.QueryJobConfig(query_parameters=params),
+        ).result()
         return [self._row_to_post(row) for row in rows], int(total)
 
     def get_post(self, post_id: str) -> PostRead | None:
         sql = f"""
-            SELECT id, platform, author, content, language, sentiment, keywords, created_at, inserted_at
+            SELECT
+                id,
+                platform,
+                author,
+                content,
+                language,
+                sentiment,
+                keywords,
+                created_at,
+                inserted_at
             FROM `{self.table_id}`
             WHERE id = @post_id
             LIMIT 1
@@ -152,7 +176,9 @@ class BigQueryPostRepository(PostRepository):
         except NotFound:
             self.client.create_table(table)
 
-    def _build_filters(self, filters: PostFilters) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
+    def _build_filters(
+        self, filters: PostFilters
+    ) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
         conditions: list[str] = []
         params: list[bigquery.ScalarQueryParameter] = []
 
@@ -164,7 +190,9 @@ class BigQueryPostRepository(PostRepository):
             params.append(bigquery.ScalarQueryParameter("sentiment", "STRING", filters.sentiment))
         if filters.keyword:
             conditions.append("@keyword IN UNNEST(keywords)")
-            params.append(bigquery.ScalarQueryParameter("keyword", "STRING", filters.keyword.lower()))
+            params.append(
+                bigquery.ScalarQueryParameter("keyword", "STRING", filters.keyword.lower())
+            )
 
         return (f"WHERE {' AND '.join(conditions)}" if conditions else ""), params
 

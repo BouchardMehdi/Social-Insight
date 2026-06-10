@@ -6,7 +6,6 @@ from app.repositories.base import PostRepository
 from app.schemas.posts import PostRead
 from app.services.nlp import NLPAnalyzer
 
-
 PLATFORMS = ["twitter", "linkedin", "reddit", "instagram", "youtube", "tiktok"]
 
 AUTHORS = [

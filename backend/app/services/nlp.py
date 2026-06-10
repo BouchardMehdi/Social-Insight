@@ -89,7 +89,9 @@ class SpacyNLPAnalyzer(NLPAnalyzer):
     def _detect_language(self, tokens: list[str]) -> str:
         if not tokens:
             return "unknown"
-        french_hits = sum(1 for token in tokens if token in self.french_markers or token in self.stop_words)
+        french_hits = sum(
+            1 for token in tokens if token in self.french_markers or token in self.stop_words
+        )
         return "fr" if french_hits / len(tokens) >= 0.15 else "en"
 
     def _detect_sentiment(self, tokens: list[str]) -> Sentiment:

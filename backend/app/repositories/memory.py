@@ -30,7 +30,10 @@ class InMemoryPostRepository(PostRepository):
 
     def get_top_keywords(self, limit: int = 10) -> list[TopKeyword]:
         counts = Counter(keyword for post in self._posts for keyword in post.keywords)
-        return [TopKeyword(keyword=keyword, count=count) for keyword, count in counts.most_common(limit)]
+        return [
+            TopKeyword(keyword=keyword, count=count)
+            for keyword, count in counts.most_common(limit)
+        ]
 
     def get_sentiment_distribution(self) -> SentimentDistribution:
         counts = Counter(post.sentiment for post in self._posts)

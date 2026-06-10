@@ -160,6 +160,16 @@ poetry run pytest
 
 Les tests utilisent le repository mémoire pour éviter de dépendre d'un compte Google Cloud.
 
+## Intégration continue
+
+Le workflow GitHub Actions `.github/workflows/ci.yml` vérifie automatiquement :
+
+- lint et tests backend avec Poetry, Ruff et Pytest ;
+- build frontend Vue avec `npm run build` ;
+- build des images Docker via `docker compose build`.
+
+La CI se lance sur les pushes et pull requests vers `main`, ainsi que manuellement avec `workflow_dispatch`.
+
 ## Erreurs et logs
 
 L'API renvoie les erreurs dans un format stable :

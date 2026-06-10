@@ -29,7 +29,12 @@ class PostService:
 
     def list_posts(self, filters: PostFilters) -> PostListResponse:
         posts, total = self.repository.list_posts(filters)
-        return PostListResponse(items=posts, total=total, limit=filters.limit, offset=filters.offset)
+        return PostListResponse(
+            items=posts,
+            total=total,
+            limit=filters.limit,
+            offset=filters.offset,
+        )
 
     def get_post(self, post_id: str) -> PostRead | None:
         return self.repository.get_post(post_id)
