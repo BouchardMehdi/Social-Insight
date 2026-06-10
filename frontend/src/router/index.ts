@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AnalyticsView from '../views/AnalyticsView.vue'
 import DashboardView from '../views/DashboardView.vue'
 import NewPostView from '../views/NewPostView.vue'
+import PostDetailView from '../views/PostDetailView.vue'
 import PostsView from '../views/PostsView.vue'
 
 const router = createRouter({
@@ -10,6 +11,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'dashboard', component: DashboardView },
     { path: '/posts', name: 'posts', component: PostsView },
+    { path: '/posts/:id', name: 'post-detail', component: PostDetailView },
     { path: '/analytics', name: 'analytics', component: AnalyticsView },
     { path: '/new-post', name: 'new-post', component: NewPostView },
   ],

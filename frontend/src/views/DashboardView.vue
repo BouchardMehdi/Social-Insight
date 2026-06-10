@@ -4,6 +4,8 @@ import { Hash, MessageSquareText, SmilePlus, Users } from '@lucide/vue'
 import type { ChartConfiguration } from 'chart.js'
 
 import ChartPanel from '../components/ChartPanel.vue'
+import ErrorBanner from '../components/ErrorBanner.vue'
+import LoadingState from '../components/LoadingState.vue'
 import StatCard from '../components/StatCard.vue'
 import { useAnalyticsStore } from '../stores/analytics'
 
@@ -49,12 +51,16 @@ const sentimentChart = computed<ChartConfiguration>(() => ({
       <span class="health-pill">API BigQuery ready</span>
     </div>
 
+    <ErrorBanner v-if="analytics.error" title="Analytics indisponibles" :message="analytics.error" />
+
     <div class="stats-grid">
       <StatCard label="Posts analysés" :value="analytics.summary.total_posts" tone="cyan" :icon="MessageSquareText" />
       <StatCard label="Auteurs uniques" :value="analytics.summary.total_authors" tone="green" :icon="Users" />
       <StatCard label="Sentiments classés" :value="sentimentTotal" tone="rose" :icon="SmilePlus" />
       <StatCard label="Keywords suivis" :value="analytics.keywords.length" tone="amber" :icon="Hash" />
     </div>
+
+    <LoadingState v-if="analytics.loading" label="Chargement du dashboard..." />
 
     <div class="dashboard-grid">
       <section class="panel">
@@ -66,7 +72,9 @@ const sentimentChart = computed<ChartConfiguration>(() => ({
             <span>{{ keyword.keyword }}</span>
             <strong>{{ keyword.count }}</strong>
           </div>
-          <p v-if="!analytics.keywords.length" class="empty-state">Aucune donnée disponible</p>
+          <p v-if="!analytics.loading && !analytics.keywords.length" class="empty-state">
+            Aucune donnée disponible
+          </p>
         </div>
       </section>
 

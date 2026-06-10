@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { BarChart3, FileText, LayoutDashboard, PlusCircle } from '@lucide/vue'
+import ToastContainer from './components/ToastContainer.vue'
 
 const navItems = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -31,5 +32,7 @@ const navItems = [
     <main class="main-panel">
       <RouterView />
     </main>
+
+    <ToastContainer />
   </div>
 </template>

@@ -3,6 +3,8 @@ import { computed, onMounted } from 'vue'
 import type { ChartConfiguration } from 'chart.js'
 
 import ChartPanel from '../components/ChartPanel.vue'
+import ErrorBanner from '../components/ErrorBanner.vue'
+import LoadingState from '../components/LoadingState.vue'
 import { useAnalyticsStore } from '../stores/analytics'
 
 const analytics = useAnalyticsStore()
@@ -91,6 +93,9 @@ const sentimentChart = computed<ChartConfiguration>(() => ({
         <h1>Analytics</h1>
       </div>
     </div>
+
+    <ErrorBanner v-if="analytics.error" title="Graphiques indisponibles" :message="analytics.error" />
+    <LoadingState v-if="analytics.loading" label="Chargement des graphiques..." />
 
     <div class="analytics-grid">
       <ChartPanel title="Activité quotidienne" :config="activityChart" />

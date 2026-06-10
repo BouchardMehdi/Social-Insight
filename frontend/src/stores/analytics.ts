@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 
+import { getApiErrorMessage } from '../api/errors'
 import { getActivity, getSentiments, getSummary, getTopKeywords } from '../api/socialInsight'
 import type { ActivityPoint, SentimentDistribution, SummaryStats, TopKeyword } from '../types/social'
 
@@ -28,7 +29,7 @@ export const useAnalyticsStore = defineStore('analytics', {
         this.sentiments = sentiments
         this.activity = activity
       } catch (error) {
-        this.error = error instanceof Error ? error.message : 'Impossible de charger les analyses'
+        this.error = getApiErrorMessage(error, 'Impossible de charger les analyses')
       } finally {
         this.loading = false
       }

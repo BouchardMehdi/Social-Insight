@@ -2,35 +2,60 @@
 import { reactive, ref } from 'vue'
 import { Send, Sparkles } from '@lucide/vue'
 
+import { getApiErrorMessage } from '../api/errors'
 import { analyzeText } from '../api/socialInsight'
+import ErrorBanner from '../components/ErrorBanner.vue'
 import SentimentBadge from '../components/SentimentBadge.vue'
 import { usePostsStore } from '../stores/posts'
+import { useToastsStore } from '../stores/toasts'
 import type { AnalyzeResponse } from '../types/social'
 
 const posts = usePostsStore()
+const toasts = useToastsStore()
 const form = reactive({
   platform: 'twitter',
   author: '',
   content: '',
 })
 const loading = ref(false)
+const analyzing = ref(false)
 const created = ref(false)
+const error = ref('')
 const analysis = ref<AnalyzeResponse | null>(null)
 
 async function previewAnalysis() {
   if (!form.content.trim()) return
-  analysis.value = await analyzeText(form.content)
+  analyzing.value = true
+  error.value = ''
+  try {
+    analysis.value = await analyzeText(form.content)
+    toasts.info('Analyse terminée', 'Le contenu a été analysé sans insertion.')
+  } catch (caughtError) {
+    error.value = getApiErrorMessage(caughtError, "Impossible d'analyser le texte")
+    toasts.error('Analyse impossible', error.value)
+  } finally {
+    analyzing.value = false
+  }
 }
 
 async function submitPost() {
   loading.value = true
   created.value = false
+  error.value = ''
   try {
-    await posts.create(form)
-    analysis.value = await analyzeText(form.content)
+    const post = await posts.create(form)
+    analysis.value = {
+      language: post.language,
+      sentiment: post.sentiment,
+      keywords: post.keywords,
+    }
     form.author = ''
     form.content = ''
     created.value = true
+    toasts.success('Post créé', `Le post ${post.platform} a été analysé et enregistré.`)
+  } catch (caughtError) {
+    error.value = getApiErrorMessage(caughtError, 'Impossible de créer le post')
+    toasts.error('Création impossible', error.value)
   } finally {
     loading.value = false
   }
@@ -45,6 +70,8 @@ async function submitPost() {
         <h1>Nouveau post</h1>
       </div>
     </div>
+
+    <ErrorBanner v-if="error" title="Action impossible" :message="error" />
 
     <div class="form-grid">
       <form class="panel form-panel" @submit.prevent="submitPost">
@@ -71,9 +98,9 @@ async function submitPost() {
           ></textarea>
         </label>
         <div class="button-row">
-          <button class="secondary-button" type="button" @click="previewAnalysis">
+          <button class="secondary-button" type="button" :disabled="analyzing || loading" @click="previewAnalysis">
             <Sparkles :size="16" />
-            <span>Analyser</span>
+            <span>{{ analyzing ? 'Analyse...' : 'Analyser' }}</span>
           </button>
           <button class="primary-button" type="submit" :disabled="loading">
             <Send :size="16" />
