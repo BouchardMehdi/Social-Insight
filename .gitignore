@@ -9,4 +9,5 @@ dist/
 *.tsbuildinfo
 node_modules/
 .env
+docker-compose.bigquery.local.yml
 .DS_Store

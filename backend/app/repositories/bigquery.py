@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from google.api_core.exceptions import NotFound
+from google.api_core.exceptions import GoogleAPICallError, NotFound
 from google.cloud import bigquery
 
 from app.config.settings import Settings
@@ -28,9 +28,19 @@ class BigQueryPostRepository(PostRepository):
 
     def create_post(self, post: PostRead) -> PostRead:
         payload = post.model_dump(mode="json")
-        errors = self.client.insert_rows_json(self.table_id, [payload])
-        if errors:
-            raise RepositoryError("BigQuery insertion failed.", details=errors)
+        job_config = bigquery.LoadJobConfig(
+            schema=self._posts_schema(),
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        )
+        try:
+            load_job = self.client.load_table_from_json(
+                [payload],
+                self.table_id,
+                job_config=job_config,
+            )
+            load_job.result()
+        except GoogleAPICallError as exc:
+            raise RepositoryError("BigQuery insertion failed.", details=str(exc)) from exc
         return post
 
     def list_posts(self, filters: PostFilters) -> tuple[list[PostRead], int]:
@@ -159,7 +169,15 @@ class BigQueryPostRepository(PostRepository):
             self.client.create_dataset(dataset)
 
     def _ensure_posts_table(self) -> None:
-        schema = [
+        table = bigquery.Table(self.table_id, schema=self._posts_schema())
+        try:
+            self.client.get_table(self.table_id)
+        except NotFound:
+            self.client.create_table(table)
+
+    @staticmethod
+    def _posts_schema() -> list[bigquery.SchemaField]:
+        return [
             bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("platform", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("author", "STRING", mode="REQUIRED"),
@@ -170,11 +188,6 @@ class BigQueryPostRepository(PostRepository):
             bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
             bigquery.SchemaField("inserted_at", "TIMESTAMP", mode="REQUIRED"),
         ]
-        table = bigquery.Table(self.table_id, schema=schema)
-        try:
-            self.client.get_table(self.table_id)
-        except NotFound:
-            self.client.create_table(table)
 
     def _build_filters(
         self, filters: PostFilters
