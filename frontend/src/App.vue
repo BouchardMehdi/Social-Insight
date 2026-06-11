@@ -14,8 +14,8 @@ const navItems = [
   <div class="app-shell">
     <aside class="sidebar">
       <RouterLink to="/" class="brand">
-        <span class="brand-mark">SI</span>
-        <span>
+        <img class="brand-logo" src="/logo%20social%20insight.png" alt="Social Insight" />
+        <span class="brand-copy">
           <strong>Social Insight</strong>
           <small>Data Intelligence</small>
         </span>

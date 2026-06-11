@@ -64,15 +64,11 @@ a {
   margin-bottom: 28px;
 }
 
-.brand-mark {
-  display: grid;
-  width: 42px;
+.brand-logo {
+  width: 58px;
   height: 42px;
-  place-items: center;
-  border-radius: 8px;
-  background: #35d3ff;
-  color: #061016;
-  font-weight: 800;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .brand strong,
@@ -84,6 +80,10 @@ a {
   margin-top: 2px;
   color: #8ea0b7;
   font-size: 0.78rem;
+}
+
+.brand-copy {
+  min-width: 0;
 }
 
 .nav-list {
