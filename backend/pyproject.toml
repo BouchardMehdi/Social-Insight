@@ -6,6 +6,9 @@ authors = ["Social Insight <team@social-insight.local>"]
 readme = "../README.md"
 packages = [{ include = "app" }]
 
+[tool.poetry.scripts]
+seed-bigquery = "app.scripts.seed_bigquery:main"
+
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
 fastapi = "^0.115.6"

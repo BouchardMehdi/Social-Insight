@@ -18,7 +18,13 @@ class BigQueryPostRepository(PostRepository):
             )
 
         self.settings = settings
-        self.client = bigquery.Client(project=settings.google_cloud_project)
+        if settings.google_application_credentials:
+            self.client = bigquery.Client.from_service_account_json(
+                settings.google_application_credentials,
+                project=settings.google_cloud_project,
+            )
+        else:
+            self.client = bigquery.Client(project=settings.google_cloud_project)
         self.dataset_id = f"{settings.google_cloud_project}.{settings.bigquery_dataset}"
         self.table_id = f"{self.dataset_id}.{settings.bigquery_posts_table}"
 
@@ -27,21 +33,32 @@ class BigQueryPostRepository(PostRepository):
         self._ensure_posts_table()
 
     def create_post(self, post: PostRead) -> PostRead:
-        payload = post.model_dump(mode="json")
+        self.create_posts([post], replace=False)
+        return post
+
+    def create_posts(self, posts: list[PostRead], *, replace: bool = False) -> int:
+        if not posts:
+            return 0
+
+        payload = [post.model_dump(mode="json") for post in posts]
         job_config = bigquery.LoadJobConfig(
             schema=self._posts_schema(),
-            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+            write_disposition=(
+                bigquery.WriteDisposition.WRITE_TRUNCATE
+                if replace
+                else bigquery.WriteDisposition.WRITE_APPEND
+            ),
         )
         try:
             load_job = self.client.load_table_from_json(
-                [payload],
+                payload,
                 self.table_id,
                 job_config=job_config,
             )
             load_job.result()
         except GoogleAPICallError as exc:
             raise RepositoryError("BigQuery insertion failed.", details=str(exc)) from exc
-        return post
+        return len(posts)
 
     def list_posts(self, filters: PostFilters) -> tuple[list[PostRead], int]:
         where_sql, params = self._build_filters(filters)

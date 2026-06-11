@@ -60,6 +60,34 @@ Le mode Docker active aussi un seed de démonstration :
 
 Au démarrage, l'API génère automatiquement des posts simulés sur plusieurs plateformes, auteurs, sentiments et dates récentes. Le seed ne s'exécute pas si le datastore contient déjà des posts.
 
+Pour alimenter BigQuery avec un jeu de données de démonstration contrôlé :
+
+```bash
+cd backend
+poetry run seed-bigquery --count 1000 --replace
+```
+
+Le mode `--replace` remplace le contenu de la table `posts` par exactement les données générées. Sans `--replace`, la commande ajoute les lignes à la table existante.
+
+Avec Docker :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml run --rm backend \
+  python -m app.scripts.seed_bigquery --count 1000 --replace
+```
+
+Sur un VPS, l'ordre recommandé est :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml up -d --build
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
+  python -m app.scripts.seed_bigquery --count 1000 --replace
+```
+
+Le premier lancement démarre l'API et crée le dataset/table si nécessaire. La deuxième commande remplit BigQuery. Si la table sandbox expire après 60 jours, relance simplement la commande de seed.
+
+Le fichier `docker-compose.bigquery.example.yml` fournit un modèle versionnable. Le fichier local réel `docker-compose.bigquery.local.yml` doit rester ignoré par Git parce qu'il contient le chemin vers votre clé JSON.
+
 URLs locales :
 
 - Frontend : http://localhost:5173

@@ -1,0 +1,12 @@
+services:
+  backend:
+    environment:
+      SOCIAL_INSIGHT_STORAGE_BACKEND: bigquery
+      SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT: your-gcp-project-id
+      SOCIAL_INSIGHT_BIGQUERY_DATASET: social_insight
+      SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE: posts
+      SOCIAL_INSIGHT_BIGQUERY_LOCATION: EU
+      SOCIAL_INSIGHT_SEED_ON_STARTUP: "false"
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/social-insight-gcp-key.json
+    volumes:
+      - /absolute/path/to/social-insight-gcp-key.json:/secrets/social-insight-gcp-key.json:ro

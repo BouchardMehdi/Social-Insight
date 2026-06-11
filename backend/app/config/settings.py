@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +18,13 @@ class Settings(BaseSettings):
     bigquery_dataset: str = "social_insight"
     bigquery_posts_table: str = "posts"
     bigquery_location: str = "EU"
+    google_application_credentials: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices(
+            "GOOGLE_APPLICATION_CREDENTIALS",
+            "SOCIAL_INSIGHT_GOOGLE_APPLICATION_CREDENTIALS",
+        ),
+    )
 
     cors_origins: list[str] = Field(
         default_factory=lambda: [
@@ -32,6 +39,7 @@ class Settings(BaseSettings):
         env_prefix="SOCIAL_INSIGHT_",
         env_nested_delimiter="__",
         case_sensitive=False,
+        extra="ignore",
     )
 
 
