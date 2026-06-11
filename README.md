@@ -1,73 +1,308 @@
+<p align="center">
+  <img src="frontend/public/logo%20social%20insight.png" alt="Social Insight" width="420" />
+</p>
+
 # Social Insight Platform
 
-Plateforme SaaS d'analyse de publications sociales avec ingestion texte, NLP, API FastAPI, stockage BigQuery et dashboard Vue 3.
+Social Insight Platform est une application SaaS de demonstration qui ingere des publications sociales, analyse leur contenu avec un service NLP, stocke les resultats dans Google BigQuery et expose des tableaux de bord analytiques avec Vue 3.
 
-## Architecture
+Le projet a ete concu comme un projet portfolio professionnel pour montrer des competences en Python, FastAPI, Data Engineering, Google Cloud, BigQuery, NLP, Docker et Vue.js.
+
+## Sommaire
+
+- [Objectif du projet](#objectif-du-projet)
+- [Fonctionnalites](#fonctionnalites)
+- [Stack technique](#stack-technique)
+- [Architecture globale](#architecture-globale)
+- [Architecture backend](#architecture-backend)
+- [Architecture frontend](#architecture-frontend)
+- [Fonctionnement end-to-end](#fonctionnement-end-to-end)
+- [BigQuery](#bigquery)
+- [Modes de stockage](#modes-de-stockage)
+- [Seed de donnees](#seed-de-donnees)
+- [Installation avec Docker](#installation-avec-docker)
+- [Installation locale backend](#installation-locale-backend)
+- [Installation locale frontend](#installation-locale-frontend)
+- [Variables d'environnement](#variables-denvironnement)
+- [Endpoints API](#endpoints-api)
+- [Erreurs et logs](#erreurs-et-logs)
+- [Tests](#tests)
+- [CI GitHub Actions](#ci-github-actions)
+- [Utilisation avec BigQuery Sandbox](#utilisation-avec-bigquery-sandbox)
+- [Preparation Cloud Run](#preparation-cloud-run)
+- [Securite](#securite)
+- [Structure du projet](#structure-du-projet)
+- [Commandes utiles](#commandes-utiles)
+
+## Objectif du projet
+
+L'objectif est de simuler une plateforme d'analyse de donnees sociales capable de :
+
+- recevoir des publications textuelles issues de plateformes sociales ;
+- analyser automatiquement la langue, le sentiment et les mots-cles ;
+- persister les donnees analysees dans BigQuery ;
+- exposer les donnees via une API REST FastAPI ;
+- calculer des statistiques directement avec SQL BigQuery ;
+- afficher les resultats dans une interface Vue 3 moderne.
+
+Le projet ne cherche pas a etre un produit commercial complet. Il sert surtout a demontrer une architecture propre et realiste autour d'un cas Data Engineering et Cloud.
+
+## Fonctionnalites
+
+- Ingestion de posts sociaux via API et formulaire frontend.
+- Analyse NLP :
+  - detection de langue ;
+  - sentiment `positive`, `neutral`, `negative` ;
+  - extraction de mots-cles.
+- Stockage cloud dans Google BigQuery.
+- Mode local `memory` pour tester sans Google Cloud.
+- Dashboard analytique :
+  - nombre total de posts ;
+  - nombre d'auteurs ;
+  - top keywords ;
+  - repartition des sentiments.
+- Page Posts :
+  - filtres par plateforme, sentiment et keyword ;
+  - pagination ;
+  - acces au detail d'un post.
+- Page Analytics avec graphiques Chart.js.
+- Formulaire de creation de post.
+- Seed de donnees local et seed BigQuery controle.
+- Logs JSON et `X-Request-ID`.
+- Tests Pytest.
+- CI GitHub Actions.
+- Docker Compose.
+
+## Stack technique
+
+### Backend
+
+- Python 3.12
+- FastAPI
+- Pydantic v2
+- Uvicorn
+- spaCy
+- google-cloud-bigquery
+- Poetry
+- Pytest
+- Ruff
+
+### Frontend
+
+- Vue 3
+- TypeScript
+- Vite
+- Pinia
+- Vue Router
+- Axios
+- Chart.js
+- Lucide icons
+
+### Infrastructure
+
+- Docker
+- Docker Compose
+- GitHub Actions
+- Google Cloud BigQuery
+
+## Architecture globale
 
 ```text
-Frontend Vue 3 + TypeScript
-        |
-        v
-API FastAPI + services Python
-        |
-        v
+Frontend Vue 3
+       |
+       | HTTP / Axios
+       v
+API FastAPI
+       |
+       | Repository abstraction
+       v
 Google BigQuery
 ```
 
-Le backend est découpé en routes, services, repositories, schémas et configuration. Les routes ne contiennent pas de logique métier : elles délèguent aux services, qui utilisent un repository abstrait. Le repository BigQuery est la couche officielle de persistance.
+Le frontend ne communique jamais directement avec BigQuery. Toutes les lectures et ecritures passent par l'API FastAPI.
 
-## Stack
+## Architecture backend
 
-- Backend : Python 3.12, FastAPI, Pydantic v2, Uvicorn, spaCy, google-cloud-bigquery, Poetry, Pytest
-- Frontend : Vue 3, TypeScript, Vite, Pinia, Vue Router, Axios, Chart.js
-- Infrastructure : Docker, Docker Compose, Git
+Le backend est organise par responsabilites :
+
+```text
+backend/
+├── app/
+│   ├── api/
+│   │   ├── routes/
+│   │   ├── dependencies.py
+│   │   └── router.py
+│   ├── config/
+│   │   └── settings.py
+│   ├── core/
+│   │   ├── error_handlers.py
+│   │   ├── exceptions.py
+│   │   └── logging.py
+│   ├── repositories/
+│   │   ├── base.py
+│   │   ├── bigquery.py
+│   │   └── memory.py
+│   ├── schemas/
+│   ├── scripts/
+│   ├── services/
+│   └── main.py
+├── tests/
+├── Dockerfile
+├── poetry.lock
+└── pyproject.toml
+```
+
+### Separation des responsabilites
+
+- `api/routes` contient les endpoints HTTP.
+- `services` contient la logique metier.
+- `repositories` contient l'acces aux donnees.
+- `schemas` contient les contrats Pydantic.
+- `core` contient la gestion d'erreurs et les logs.
+- `config` centralise les variables d'environnement.
+
+Les routes ne contiennent pas de logique metier lourde. Elles valident la requete, appellent les services et retournent les schemas de reponse.
+
+## Architecture frontend
+
+```text
+frontend/
+├── public/
+│   └── logo social insight.png
+├── src/
+│   ├── api/
+│   ├── assets/
+│   ├── components/
+│   ├── router/
+│   ├── stores/
+│   ├── types/
+│   ├── views/
+│   ├── App.vue
+│   └── main.ts
+├── Dockerfile
+├── package-lock.json
+├── package.json
+└── vite.config.ts
+```
+
+Le frontend utilise Pinia pour l'etat applicatif :
+
+- `analytics` pour les statistiques ;
+- `posts` pour les publications ;
+- `toasts` pour les notifications utilisateur.
+
+## Fonctionnement end-to-end
+
+Exemple : creation d'un post.
+
+1. L'utilisateur soumet un post depuis le frontend.
+2. Vue appelle `POST /api/posts`.
+3. FastAPI valide le body avec Pydantic.
+4. `PostService` appelle le service NLP.
+5. Le service NLP retourne :
+   - langue ;
+   - sentiment ;
+   - keywords.
+6. `PostService` construit un objet `PostRead`.
+7. Le repository persiste le post :
+   - en memoire en mode local ;
+   - dans BigQuery en mode cloud.
+8. Le frontend affiche un toast de succes.
+9. Les pages Dashboard et Analytics relisent les stats via l'API.
 
 ## BigQuery
 
-Au démarrage, le backend crée automatiquement :
+BigQuery est le datastore principal du projet.
 
-- Dataset : `social_insight`
-- Table : `posts`
+Au demarrage, le backend cree automatiquement :
 
-Schéma de la table :
+- dataset : `social_insight`
+- table : `posts`
 
-| Colonne | Type |
-| --- | --- |
-| `id` | STRING |
-| `platform` | STRING |
-| `author` | STRING |
-| `content` | STRING |
-| `language` | STRING |
-| `sentiment` | STRING |
-| `keywords` | ARRAY<STRING> |
-| `created_at` | TIMESTAMP |
-| `inserted_at` | TIMESTAMP |
+Schema :
 
-Les endpoints analytics utilisent des requêtes SQL BigQuery directement dans `backend/app/repositories/bigquery.py`.
+| Colonne | Type BigQuery | Mode |
+| --- | --- | --- |
+| `id` | STRING | REQUIRED |
+| `platform` | STRING | REQUIRED |
+| `author` | STRING | REQUIRED |
+| `content` | STRING | REQUIRED |
+| `language` | STRING | REQUIRED |
+| `sentiment` | STRING | REQUIRED |
+| `keywords` | STRING | REPEATED |
+| `created_at` | TIMESTAMP | REQUIRED |
+| `inserted_at` | TIMESTAMP | REQUIRED |
 
-## Lancement avec Docker
+Les statistiques sont calculees directement avec SQL BigQuery dans `backend/app/repositories/bigquery.py`.
 
-```bash
-docker compose up --build
+Exemple de requete :
+
+```sql
+SELECT
+  sentiment,
+  COUNT(*) AS count
+FROM `social-insight-499111.social_insight.posts`
+GROUP BY sentiment;
 ```
 
-Par défaut, Docker Compose utilise `SOCIAL_INSIGHT_STORAGE_BACKEND=memory` pour permettre une démo locale sans compte Google Cloud. Pour utiliser BigQuery, remplacez cette variable par `bigquery`, ajoutez `SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT`, puis montez vos credentials Google via `GOOGLE_APPLICATION_CREDENTIALS`.
+## Modes de stockage
 
-Le mode Docker active aussi un seed de démonstration :
+Le backend supporte deux modes.
 
-- `SOCIAL_INSIGHT_SEED_ON_STARTUP=true`
-- `SOCIAL_INSIGHT_SEED_POSTS_COUNT=600`
+### Mode memory
 
-Au démarrage, l'API génère automatiquement des posts simulés sur plusieurs plateformes, auteurs, sentiments et dates récentes. Le seed ne s'exécute pas si le datastore contient déjà des posts.
+```env
+SOCIAL_INSIGHT_STORAGE_BACKEND=memory
+```
 
-Pour alimenter BigQuery avec un jeu de données de démonstration contrôlé :
+Utilise un repository en memoire. Ce mode sert aux tests et a la demo locale sans Google Cloud.
+
+Avantages :
+
+- demarrage rapide ;
+- aucun compte cloud necessaire ;
+- seed automatique possible.
+
+Limite :
+
+- les donnees disparaissent au redemarrage du conteneur.
+
+### Mode bigquery
+
+```env
+SOCIAL_INSIGHT_STORAGE_BACKEND=bigquery
+```
+
+Utilise Google BigQuery comme stockage persistant.
+
+Avantages :
+
+- donnees persistantes ;
+- statistiques SQL ;
+- architecture proche d'un projet cloud reel.
+
+## Seed de donnees
+
+### Seed local memory
+
+Dans `docker-compose.yml`, le mode local active :
+
+```env
+SOCIAL_INSIGHT_STORAGE_BACKEND=memory
+SOCIAL_INSIGHT_SEED_ON_STARTUP=true
+SOCIAL_INSIGHT_SEED_POSTS_COUNT=600
+```
+
+Au demarrage, l'API remplit le repository memoire si celui-ci est vide.
+
+### Seed controle BigQuery
+
+Pour remplir BigQuery avec 1000 posts de demonstration :
 
 ```bash
 cd backend
 poetry run seed-bigquery --count 1000 --replace
 ```
-
-Le mode `--replace` remplace le contenu de la table `posts` par exactement les données générées. Sans `--replace`, la commande ajoute les lignes à la table existante.
 
 Avec Docker :
 
@@ -76,26 +311,70 @@ docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml run --
   python -m app.scripts.seed_bigquery --count 1000 --replace
 ```
 
-Sur un VPS, l'ordre recommandé est :
+`--replace` remplace le contenu de la table par les donnees generees.
+
+Sans `--replace`, la commande ajoute les posts a la table existante.
+
+Le seed BigQuery genere une distribution non uniforme :
+
+- plus de posts positifs que neutres ;
+- moins de posts negatifs ;
+- plateformes avec poids differents ;
+- keywords et topics varies.
+
+## Installation avec Docker
+
+### Demo locale sans BigQuery
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml up -d --build
-docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+docker compose up --build
 ```
 
-Le premier lancement démarre l'API et crée le dataset/table si nécessaire. La deuxième commande remplit BigQuery. Si la table sandbox expire après 60 jours, relance simplement la commande de seed.
-
-Le fichier `docker-compose.bigquery.example.yml` fournit un modèle versionnable. Le fichier local réel `docker-compose.bigquery.local.yml` doit rester ignoré par Git parce qu'il contient le chemin vers votre clé JSON.
-
-URLs locales :
+URLs :
 
 - Frontend : http://localhost:5173
 - API : http://localhost:8000/api
 - Swagger : http://localhost:8000/docs
 - ReDoc : http://localhost:8000/redoc
 
-## Lancement backend local
+### Mode BigQuery local
+
+Copier le modele :
+
+```bash
+cp docker-compose.bigquery.example.yml docker-compose.bigquery.local.yml
+```
+
+Adapter :
+
+```yaml
+SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT: social-insight-499111
+GOOGLE_APPLICATION_CREDENTIALS: /secrets/social-insight-gcp-key.json
+volumes:
+  - C:/Users/bouch/gcp-keys/social-insight-499111-31925cd65113.json:/secrets/social-insight-gcp-key.json:ro
+```
+
+Lancer :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml up -d --build
+```
+
+Seeder BigQuery :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
+  python -m app.scripts.seed_bigquery --count 1000 --replace
+```
+
+Sur un VPS, l'ordre recommande est :
+
+1. demarrer la stack ;
+2. verifier que l'API repond ;
+3. lancer le seed ;
+4. ouvrir le frontend.
+
+## Installation locale backend
 
 ```bash
 cd backend
@@ -103,20 +382,9 @@ poetry install
 poetry run uvicorn app.main:app --reload
 ```
 
-Variables principales :
+Si le backend est lance hors Docker avec BigQuery, verifier `backend/.env`.
 
-```bash
-SOCIAL_INSIGHT_STORAGE_BACKEND=bigquery
-SOCIAL_INSIGHT_SEED_ON_STARTUP=false
-SOCIAL_INSIGHT_SEED_POSTS_COUNT=600
-SOCIAL_INSIGHT_LOG_LEVEL=INFO
-SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT=your-gcp-project-id
-SOCIAL_INSIGHT_BIGQUERY_DATASET=social_insight
-SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE=posts
-SOCIAL_INSIGHT_BIGQUERY_LOCATION=EU
-```
-
-## Lancement frontend local
+## Installation locale frontend
 
 ```bash
 cd frontend
@@ -124,105 +392,332 @@ npm install
 npm run dev
 ```
 
-Configurez l'URL API avec :
+Variable frontend :
 
-```bash
+```env
 VITE_API_BASE_URL=http://localhost:8000/api
 ```
 
+## Variables d'environnement
+
+### Backend
+
+| Variable | Description | Exemple |
+| --- | --- | --- |
+| `SOCIAL_INSIGHT_ENVIRONMENT` | Environnement courant | `local` |
+| `SOCIAL_INSIGHT_STORAGE_BACKEND` | Repository utilise | `memory` ou `bigquery` |
+| `SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT` | ID du projet Google Cloud | `social-insight-499111` |
+| `SOCIAL_INSIGHT_BIGQUERY_DATASET` | Dataset BigQuery | `social_insight` |
+| `SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE` | Table BigQuery | `posts` |
+| `SOCIAL_INSIGHT_BIGQUERY_LOCATION` | Region BigQuery | `EU` |
+| `SOCIAL_INSIGHT_SEED_ON_STARTUP` | Seed automatique au demarrage | `true` ou `false` |
+| `SOCIAL_INSIGHT_SEED_POSTS_COUNT` | Nombre de posts seedes | `600` |
+| `SOCIAL_INSIGHT_LOG_LEVEL` | Niveau de logs | `INFO` |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Chemin vers la cle service account | `/secrets/key.json` |
+
+### Frontend
+
+| Variable | Description | Exemple |
+| --- | --- | --- |
+| `VITE_API_BASE_URL` | URL de l'API FastAPI | `http://localhost:8000/api` |
+
 ## Endpoints API
 
-Healthcheck :
+### Healthcheck
 
-```bash
-curl http://localhost:8000/api/health
+```http
+GET /api/health
 ```
 
-Analyse NLP :
+Reponse :
 
-```bash
-curl -X POST http://localhost:8000/api/analyze \
-  -H "Content-Type: application/json" \
-  -d "{\"text\":\"L'intelligence artificielle transforme les entreprises.\"}"
+```json
+{
+  "status": "healthy"
+}
 ```
 
-Création d'un post :
+### Analyse NLP
 
-```bash
-curl -X POST http://localhost:8000/api/posts \
-  -H "Content-Type: application/json" \
-  -d "{\"platform\":\"twitter\",\"author\":\"mehdi\",\"content\":\"L'intelligence artificielle transforme les entreprises.\"}"
+```http
+POST /api/analyze
 ```
 
-Liste paginée :
+Body :
 
-```bash
-curl "http://localhost:8000/api/posts?platform=twitter&limit=10&offset=0"
+```json
+{
+  "text": "L'intelligence artificielle transforme les entreprises."
+}
 ```
 
-Analytics :
+Reponse :
 
-```bash
-curl http://localhost:8000/api/stats/top-keywords
-curl http://localhost:8000/api/stats/sentiments
-curl http://localhost:8000/api/stats/activity
-curl http://localhost:8000/api/stats/summary
+```json
+{
+  "language": "fr",
+  "sentiment": "positive",
+  "keywords": ["intelligence artificielle", "entreprises"]
+}
 ```
 
-## NLP
+### Creation d'un post
 
-Le service `SpacyNLPAnalyzer` fournit une première implémentation :
-
-- détection de langue simple ;
-- extraction de mots-clés à partir de tokens spaCy ;
-- sentiment `positive`, `neutral` ou `negative` via lexiques.
-
-L'interface `NLPAnalyzer` permet de remplacer cette implémentation par un modèle HuggingFace, un LLM ou une API ML sans modifier les routes.
-
-## Tests
-
-```bash
-cd backend
-poetry run pytest
+```http
+POST /api/posts
 ```
 
-Les tests utilisent le repository mémoire pour éviter de dépendre d'un compte Google Cloud.
+Body :
 
-## Intégration continue
+```json
+{
+  "platform": "twitter",
+  "author": "mehdi",
+  "content": "L'intelligence artificielle transforme les entreprises."
+}
+```
 
-Le workflow GitHub Actions `.github/workflows/ci.yml` vérifie automatiquement :
+### Liste des posts
 
-- lint et tests backend avec Poetry, Ruff et Pytest ;
-- build frontend Vue avec `npm run build` ;
-- build des images Docker via `docker compose build`.
+```http
+GET /api/posts?platform=twitter&sentiment=positive&keyword=ia&limit=10&offset=0
+```
 
-La CI se lance sur les pushes et pull requests vers `main`, ainsi que manuellement avec `workflow_dispatch`.
+Filtres disponibles :
+
+- `platform`
+- `sentiment`
+- `keyword`
+- `limit`
+- `offset`
+
+### Detail d'un post
+
+```http
+GET /api/posts/{id}
+```
+
+### Top keywords
+
+```http
+GET /api/stats/top-keywords
+```
+
+### Distribution des sentiments
+
+```http
+GET /api/stats/sentiments
+```
+
+### Activite quotidienne
+
+```http
+GET /api/stats/activity
+```
+
+### Resume
+
+```http
+GET /api/stats/summary
+```
 
 ## Erreurs et logs
 
-L'API renvoie les erreurs dans un format stable :
+Toutes les erreurs API utilisent un format stable :
 
 ```json
 {
   "error": {
     "code": "post_not_found",
     "message": "Post not found",
-    "request_id": "..."
+    "request_id": "...",
+    "details": {
+      "id": "..."
+    }
   }
 }
 ```
 
-Chaque réponse inclut l'en-tête `X-Request-ID`. Si un client fournit déjà cet en-tête, l'API le propage. Les logs backend sont structurés en JSON avec méthode HTTP, chemin, statut, durée et identifiant de requête.
+Chaque reponse inclut :
 
-## Préparation Cloud Run
+```http
+X-Request-ID: ...
+```
 
-L'API FastAPI est prête pour un futur déploiement sur Cloud Run :
+Si le client fournit deja un `X-Request-ID`, l'API le propage.
 
-- le backend est stateless ;
-- les données métier sont externalisées dans BigQuery ;
-- l'image Docker expose Uvicorn sur le port `8000` ;
-- Cloud Run peut injecter les variables d'environnement nécessaires ;
-- un Service Account Google attaché au service Cloud Run peut recevoir les rôles BigQuery adaptés, par exemple `BigQuery Data Editor` et `BigQuery Job User` ;
-- le scaling horizontal est naturel, car plusieurs instances FastAPI peuvent écrire et lire dans BigQuery sans état local partagé.
+Les logs backend sont structures en JSON :
 
-Le frontend peut ensuite être servi par Cloud Run, Cloud Storage + CDN, Firebase Hosting ou tout autre hébergement statique compatible Vite.
+```json
+{
+  "timestamp": "2026-06-11T12:11:37.805367+00:00",
+  "level": "INFO",
+  "logger": "app.main",
+  "message": "request_completed",
+  "request_id": "...",
+  "method": "GET",
+  "path": "/api/stats/summary",
+  "status_code": 200,
+  "duration_ms": 1038.24
+}
+```
+
+## Tests
+
+Lancer les tests backend :
+
+```bash
+cd backend
+poetry run pytest
+```
+
+Lint backend :
+
+```bash
+cd backend
+poetry run ruff check app tests
+```
+
+Les tests couvrent :
+
+- healthcheck ;
+- NLP ;
+- creation de posts ;
+- filtres ;
+- pagination ;
+- statistiques ;
+- seed local ;
+- seed BigQuery ;
+- erreurs standardisees.
+
+## CI GitHub Actions
+
+Le workflow `.github/workflows/ci.yml` execute :
+
+- `ruff check app tests` ;
+- `pytest` ;
+- `npm run build` ;
+- `docker compose build`.
+
+La CI se lance sur :
+
+- push vers `main` ;
+- pull request vers `main` ;
+- lancement manuel `workflow_dispatch`.
+
+## Utilisation avec BigQuery Sandbox
+
+Le projet fonctionne avec BigQuery Sandbox.
+
+Points importants :
+
+- les tables sandbox expirent automatiquement apres environ 60 jours ;
+- si les donnees disparaissent, relancer le seed BigQuery ;
+- le streaming insert peut etre refuse en sandbox ;
+- le projet utilise donc des BigQuery load jobs pour inserer les donnees.
+
+Relancer le seed :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
+  python -m app.scripts.seed_bigquery --count 1000 --replace
+```
+
+## Preparation Cloud Run
+
+Le backend est pret pour un futur deploiement Cloud Run :
+
+- l'API est stateless ;
+- les donnees sont dans BigQuery ;
+- Docker expose Uvicorn sur le port `8000` ;
+- les variables d'environnement peuvent etre injectees par Cloud Run ;
+- un service account Cloud Run peut recevoir les roles :
+  - `BigQuery Data Editor` ;
+  - `BigQuery Job User`.
+
+En production Cloud Run, il vaut mieux eviter les cles JSON et utiliser le service account attache au service Cloud Run.
+
+## Securite
+
+Fichiers sensibles ignores par Git :
+
+- `backend/.env`
+- `docker-compose.bigquery.local.yml`
+- cles JSON Google Cloud
+
+Ne jamais committer :
+
+- une cle service account ;
+- un fichier `.env` reel ;
+- un chemin local contenant des secrets.
+
+Le fichier versionnable fourni est :
+
+```text
+docker-compose.bigquery.example.yml
+```
+
+## Structure du projet
+
+```text
+Social-Insight/
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+├── backend/
+│   ├── app/
+│   ├── tests/
+│   ├── Dockerfile
+│   ├── poetry.lock
+│   └── pyproject.toml
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   ├── Dockerfile
+│   ├── package-lock.json
+│   └── package.json
+├── docker-compose.yml
+├── docker-compose.bigquery.example.yml
+└── README.md
+```
+
+## Commandes utiles
+
+Demo locale memory :
+
+```bash
+docker compose up --build
+```
+
+Mode BigQuery :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml up -d --build
+```
+
+Seed BigQuery :
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
+  python -m app.scripts.seed_bigquery --count 1000 --replace
+```
+
+Tests backend :
+
+```bash
+cd backend
+poetry run pytest
+```
+
+Build frontend :
+
+```bash
+cd frontend
+npm run build
+```
+
+Build Docker :
+
+```bash
+docker compose build
+```
