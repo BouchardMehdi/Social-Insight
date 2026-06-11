@@ -58,17 +58,19 @@ a {
 
 .brand {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 48px;
-  margin-bottom: 28px;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 112px;
+  margin-bottom: 22px;
 }
 
 .brand-logo {
-  width: 58px;
-  height: 42px;
+  width: min(100%, 226px);
+  height: auto;
+  display: block;
   object-fit: contain;
-  object-position: left center;
+  border-radius: 8px;
 }
 
 .brand strong,
@@ -83,6 +85,7 @@ a {
 }
 
 .brand-copy {
+  display: none;
   min-width: 0;
 }
 
