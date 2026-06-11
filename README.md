@@ -21,6 +21,7 @@ Le projet a ete concu comme un projet portfolio professionnel pour montrer des c
 - [Modes de stockage](#modes-de-stockage)
 - [Seed de donnees](#seed-de-donnees)
 - [Installation avec Docker](#installation-avec-docker)
+- [Deploiement VPS](#deploiement-vps)
 - [Installation locale backend](#installation-locale-backend)
 - [Installation locale frontend](#installation-locale-frontend)
 - [Variables d'environnement](#variables-denvironnement)
@@ -72,6 +73,7 @@ Le projet ne cherche pas a etre un produit commercial complet. Il sert surtout a
 - Tests Pytest.
 - CI GitHub Actions.
 - Docker Compose.
+- Deploiement VPS documente avec Nginx, Certbot et BigQuery.
 
 ## Stack technique
 
@@ -373,6 +375,23 @@ Sur un VPS, l'ordre recommande est :
 2. verifier que l'API repond ;
 3. lancer le seed ;
 4. ouvrir le frontend.
+
+## Deploiement VPS
+
+Le projet fournit une configuration production dediee :
+
+- `docker-compose.prod.yml` pour lancer le frontend et le backend sur des ports lies a `127.0.0.1` ;
+- `frontend/Dockerfile.prod` pour builder Vue et servir les fichiers statiques avec Nginx ;
+- `.env.example` pour documenter les variables de production ;
+- `deploy.md` pour reproduire le deploiement complet sur le VPS.
+
+Commande principale :
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Guide complet : [deploy.md](deploy.md).
 
 ## Installation locale backend
 

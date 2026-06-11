@@ -1,0 +1,33 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SOCIAL_INSIGHT_ENVIRONMENT: ${SOCIAL_INSIGHT_ENVIRONMENT:-production}
+      SOCIAL_INSIGHT_STORAGE_BACKEND: ${SOCIAL_INSIGHT_STORAGE_BACKEND:-bigquery}
+      SOCIAL_INSIGHT_SEED_ON_STARTUP: ${SOCIAL_INSIGHT_SEED_ON_STARTUP:-false}
+      SOCIAL_INSIGHT_SEED_POSTS_COUNT: ${SOCIAL_INSIGHT_SEED_POSTS_COUNT:-1000}
+      SOCIAL_INSIGHT_LOG_LEVEL: ${SOCIAL_INSIGHT_LOG_LEVEL:-INFO}
+      SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT: ${SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT:-social-insight-499111}
+      SOCIAL_INSIGHT_BIGQUERY_DATASET: ${SOCIAL_INSIGHT_BIGQUERY_DATASET:-social_insight}
+      SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE: ${SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE:-posts}
+      SOCIAL_INSIGHT_BIGQUERY_LOCATION: ${SOCIAL_INSIGHT_BIGQUERY_LOCATION:-EU}
+      SOCIAL_INSIGHT_CORS_ORIGINS: '${SOCIAL_INSIGHT_CORS_ORIGINS:-["https://social-insight.bouchard-mehdi.fr"]}'
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/social-insight-gcp-key.json
+    volumes:
+      - ./secrets/${GOOGLE_SERVICE_ACCOUNT_KEY_FILE:-social-insight-499111-31925cd65113.json}:/secrets/social-insight-gcp-key.json:ro
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-3010}:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8090}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
