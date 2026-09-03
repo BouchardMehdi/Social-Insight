@@ -8,11 +8,12 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
-from app.api.dependencies import get_nlp_analyzer, get_post_repository
+from app.api.dependencies import get_identity_repository, get_nlp_analyzer, get_post_repository
 from app.api.router import api_router
 from app.config.settings import get_settings
 from app.core.error_handlers import register_error_handlers
 from app.core.logging import configure_logging
+from app.services.auth import AuthService
 from app.services.seed import DemoSeedService
 
 logger = logging.getLogger(__name__)
@@ -21,10 +22,13 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     repository = get_post_repository()
+    identity_repository = get_identity_repository()
     repository.initialize()
+    identity_repository.initialize()
     if settings.seed_on_startup:
+        session = AuthService(identity_repository, settings).ensure_demo_account()
         DemoSeedService(repository=repository, analyzer=get_nlp_analyzer()).seed_if_needed(
-            settings.seed_posts_count
+            settings.seed_posts_count, session.active_workspace_id
         )
     yield
 

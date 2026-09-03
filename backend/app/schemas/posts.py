@@ -18,6 +18,7 @@ class PostCreate(BaseModel):
 
 class PostRead(BaseModel):
     id: str
+    workspace_id: str
     platform: str
     author: str
     content: str

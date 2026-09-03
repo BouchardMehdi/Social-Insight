@@ -62,7 +62,7 @@ class BigQuerySeedFactory:
         self.analyzer = analyzer
         self.rng = Random(seed)
 
-    def generate_posts(self, count: int) -> list[PostRead]:
+    def generate_posts(self, count: int, workspace_id: str) -> list[PostRead]:
         now = datetime.now(UTC)
         posts: list[PostRead] = []
 
@@ -88,6 +88,7 @@ class BigQuerySeedFactory:
             posts.append(
                 PostRead(
                     id=str(uuid5(NAMESPACE_URL, f"social-insight-bigquery-seed-{index}")),
+                    workspace_id=workspace_id,
                     platform=platform,
                     author=author,
                     content=content,

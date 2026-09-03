@@ -60,8 +60,8 @@ class BigQueryPostRepository(PostRepository):
             raise RepositoryError("BigQuery insertion failed.", details=str(exc)) from exc
         return len(posts)
 
-    def list_posts(self, filters: PostFilters) -> tuple[list[PostRead], int]:
-        where_sql, params = self._build_filters(filters)
+    def list_posts(self, workspace_id: str, filters: PostFilters) -> tuple[list[PostRead], int]:
+        where_sql, params = self._build_filters(workspace_id, filters)
         params.extend(
             [
                 bigquery.ScalarQueryParameter("limit", "INT64", filters.limit),
@@ -79,6 +79,7 @@ class BigQueryPostRepository(PostRepository):
         sql = f"""
             SELECT
                 id,
+                workspace_id,
                 platform,
                 author,
                 content,
@@ -98,10 +99,11 @@ class BigQueryPostRepository(PostRepository):
         ).result()
         return [self._row_to_post(row) for row in rows], int(total)
 
-    def get_post(self, post_id: str) -> PostRead | None:
+    def get_post(self, workspace_id: str, post_id: str) -> PostRead | None:
         sql = f"""
             SELECT
                 id,
+                workspace_id,
                 platform,
                 author,
                 content,
@@ -111,22 +113,26 @@ class BigQueryPostRepository(PostRepository):
                 created_at,
                 inserted_at
             FROM `{self.table_id}`
-            WHERE id = @post_id
+            WHERE id = @post_id AND workspace_id = @workspace_id
             LIMIT 1
         """
         rows = self.client.query(
             sql,
             job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("post_id", "STRING", post_id)]
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("post_id", "STRING", post_id),
+                    bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id),
+                ]
             ),
         ).result()
         row = next(iter(rows), None)
         return self._row_to_post(row) if row else None
 
-    def get_top_keywords(self, limit: int = 10) -> list[TopKeyword]:
+    def get_top_keywords(self, workspace_id: str, limit: int = 10) -> list[TopKeyword]:
         sql = f"""
             SELECT keyword, COUNT(*) AS count
             FROM `{self.table_id}`, UNNEST(keywords) AS keyword
+            WHERE workspace_id = @workspace_id
             GROUP BY keyword
             ORDER BY count DESC, keyword ASC
             LIMIT @limit
@@ -134,18 +140,29 @@ class BigQueryPostRepository(PostRepository):
         rows = self.client.query(
             sql,
             job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id),
+                    bigquery.ScalarQueryParameter("limit", "INT64", limit),
+                ]
             ),
         ).result()
         return [TopKeyword(keyword=row.keyword, count=int(row.count)) for row in rows]
 
-    def get_sentiment_distribution(self) -> SentimentDistribution:
+    def get_sentiment_distribution(self, workspace_id: str) -> SentimentDistribution:
         sql = f"""
             SELECT sentiment, COUNT(*) AS count
             FROM `{self.table_id}`
+            WHERE workspace_id = @workspace_id
             GROUP BY sentiment
         """
-        rows = self.client.query(sql).result()
+        rows = self.client.query(
+            sql,
+            job_config=bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id)
+                ]
+            ),
+        ).result()
         counts = {row.sentiment: int(row.count) for row in rows}
         return SentimentDistribution(
             positive=counts.get("positive", 0),
@@ -153,10 +170,11 @@ class BigQueryPostRepository(PostRepository):
             negative=counts.get("negative", 0),
         )
 
-    def get_daily_activity(self, limit: int = 30) -> list[ActivityPoint]:
+    def get_daily_activity(self, workspace_id: str, limit: int = 30) -> list[ActivityPoint]:
         sql = f"""
             SELECT FORMAT_DATE('%F', DATE(created_at)) AS date, COUNT(*) AS count
             FROM `{self.table_id}`
+            WHERE workspace_id = @workspace_id
             GROUP BY date
             ORDER BY date DESC
             LIMIT @limit
@@ -164,17 +182,34 @@ class BigQueryPostRepository(PostRepository):
         rows = self.client.query(
             sql,
             job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id),
+                    bigquery.ScalarQueryParameter("limit", "INT64", limit),
+                ]
             ),
         ).result()
         return [ActivityPoint(date=row.date, count=int(row.count)) for row in reversed(list(rows))]
 
-    def get_summary(self) -> SummaryStats:
+    def get_summary(self, workspace_id: str) -> SummaryStats:
         sql = f"""
             SELECT COUNT(*) AS total_posts, COUNT(DISTINCT author) AS total_authors
             FROM `{self.table_id}`
+            WHERE workspace_id = @workspace_id
         """
-        row = next(iter(self.client.query(sql).result()))
+        row = next(
+            iter(
+                self.client.query(
+                    sql,
+                    job_config=bigquery.QueryJobConfig(
+                        query_parameters=[
+                            bigquery.ScalarQueryParameter(
+                                "workspace_id", "STRING", workspace_id
+                            )
+                        ]
+                    ),
+                ).result()
+            )
+        )
         return SummaryStats(total_posts=int(row.total_posts), total_authors=int(row.total_authors))
 
     def _ensure_dataset(self) -> None:
@@ -188,14 +223,23 @@ class BigQueryPostRepository(PostRepository):
     def _ensure_posts_table(self) -> None:
         table = bigquery.Table(self.table_id, schema=self._posts_schema())
         try:
-            self.client.get_table(self.table_id)
+            existing_table = self.client.get_table(self.table_id)
         except NotFound:
             self.client.create_table(table)
+            return
+
+        if "workspace_id" not in {field.name for field in existing_table.schema}:
+            existing_table.schema = [
+                *existing_table.schema,
+                bigquery.SchemaField("workspace_id", "STRING", mode="NULLABLE"),
+            ]
+            self.client.update_table(existing_table, ["schema"])
 
     @staticmethod
     def _posts_schema() -> list[bigquery.SchemaField]:
         return [
             bigquery.SchemaField("id", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("workspace_id", "STRING", mode="NULLABLE"),
             bigquery.SchemaField("platform", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("author", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("content", "STRING", mode="REQUIRED"),
@@ -207,10 +251,12 @@ class BigQueryPostRepository(PostRepository):
         ]
 
     def _build_filters(
-        self, filters: PostFilters
+        self, workspace_id: str, filters: PostFilters
     ) -> tuple[str, list[bigquery.ScalarQueryParameter]]:
-        conditions: list[str] = []
-        params: list[bigquery.ScalarQueryParameter] = []
+        conditions: list[str] = ["workspace_id = @workspace_id"]
+        params: list[bigquery.ScalarQueryParameter] = [
+            bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id)
+        ]
 
         if filters.platform:
             conditions.append("platform = @platform")
@@ -235,6 +281,7 @@ class BigQueryPostRepository(PostRepository):
 
         return PostRead(
             id=row.id,
+            workspace_id=row.workspace_id,
             platform=row.platform,
             author=row.author,
             content=row.content,

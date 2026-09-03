@@ -7,11 +7,12 @@ def test_demo_seed_generates_requested_volume() -> None:
     repository = InMemoryPostRepository()
     service = DemoSeedService(repository=repository, analyzer=SpacyNLPAnalyzer())
 
-    inserted = service.seed_if_needed(120)
+    workspace_id = "workspace-a"
+    inserted = service.seed_if_needed(120, workspace_id)
 
-    summary = repository.get_summary()
-    sentiments = repository.get_sentiment_distribution()
-    activity = repository.get_daily_activity(limit=90)
+    summary = repository.get_summary(workspace_id)
+    sentiments = repository.get_sentiment_distribution(workspace_id)
+    activity = repository.get_daily_activity(workspace_id, limit=90)
 
     assert inserted == 120
     assert summary.total_posts == 120
@@ -26,6 +27,7 @@ def test_demo_seed_does_not_duplicate_existing_data() -> None:
     repository = InMemoryPostRepository()
     service = DemoSeedService(repository=repository, analyzer=SpacyNLPAnalyzer())
 
-    assert service.seed_if_needed(30) == 30
-    assert service.seed_if_needed(30) == 0
-    assert repository.get_summary().total_posts == 30
+    workspace_id = "workspace-a"
+    assert service.seed_if_needed(30, workspace_id) == 30
+    assert service.seed_if_needed(30, workspace_id) == 0
+    assert repository.get_summary(workspace_id).total_posts == 30

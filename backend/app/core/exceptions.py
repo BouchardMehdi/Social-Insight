@@ -44,3 +44,18 @@ class StorageConfigurationError(AppError):
             message=message,
             status_code=500,
         )
+
+
+class AuthenticationError(AppError):
+    def __init__(self, message: str = "Authentication required.") -> None:
+        super().__init__(code="authentication_required", message=message, status_code=401)
+
+
+class AuthorizationError(AppError):
+    def __init__(self, message: str = "Access to this workspace is forbidden.") -> None:
+        super().__init__(code="workspace_forbidden", message=message, status_code=403)
+
+
+class ConflictError(AppError):
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(code=code, message=message, status_code=409)

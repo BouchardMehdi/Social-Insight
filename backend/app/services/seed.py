@@ -95,16 +95,16 @@ class DemoSeedService:
         self.repository = repository
         self.analyzer = analyzer
 
-    def seed_if_needed(self, count: int) -> int:
-        if count <= 0 or self.repository.get_summary().total_posts > 0:
+    def seed_if_needed(self, count: int, workspace_id: str) -> int:
+        if count <= 0 or self.repository.get_summary(workspace_id).total_posts > 0:
             return 0
 
-        posts = self.generate_posts(count)
+        posts = self.generate_posts(count, workspace_id)
         for post in posts:
             self.repository.create_post(post)
         return len(posts)
 
-    def generate_posts(self, count: int) -> list[PostRead]:
+    def generate_posts(self, count: int, workspace_id: str) -> list[PostRead]:
         rng = Random(42)
         now = datetime.now(UTC)
         posts: list[PostRead] = []
@@ -133,6 +133,7 @@ class DemoSeedService:
             posts.append(
                 PostRead(
                     id=str(uuid5(NAMESPACE_URL, f"social-insight-demo-post-{index}")),
+                    workspace_id=workspace_id,
                     platform=platform,
                     author=author,
                     content=content,

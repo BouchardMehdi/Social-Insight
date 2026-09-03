@@ -19,41 +19,60 @@ class InMemoryPostRepository(PostRepository):
         self._posts.append(post)
         return post
 
-    def list_posts(self, filters: PostFilters) -> tuple[list[PostRead], int]:
-        posts = self._apply_filters(filters)
+    def list_posts(self, workspace_id: str, filters: PostFilters) -> tuple[list[PostRead], int]:
+        posts = self._apply_filters(workspace_id, filters)
         total = len(posts)
         ordered = sorted(posts, key=attrgetter("created_at"), reverse=True)
         return ordered[filters.offset : filters.offset + filters.limit], total
 
-    def get_post(self, post_id: str) -> PostRead | None:
-        return next((post for post in self._posts if post.id == post_id), None)
+    def get_post(self, workspace_id: str, post_id: str) -> PostRead | None:
+        return next(
+            (
+                post
+                for post in self._posts
+                if post.id == post_id and post.workspace_id == workspace_id
+            ),
+            None,
+        )
 
-    def get_top_keywords(self, limit: int = 10) -> list[TopKeyword]:
-        counts = Counter(keyword for post in self._posts for keyword in post.keywords)
+    def get_top_keywords(self, workspace_id: str, limit: int = 10) -> list[TopKeyword]:
+        counts = Counter(
+            keyword
+            for post in self._posts
+            if post.workspace_id == workspace_id
+            for keyword in post.keywords
+        )
         return [
             TopKeyword(keyword=keyword, count=count)
             for keyword, count in counts.most_common(limit)
         ]
 
-    def get_sentiment_distribution(self) -> SentimentDistribution:
-        counts = Counter(post.sentiment for post in self._posts)
+    def get_sentiment_distribution(self, workspace_id: str) -> SentimentDistribution:
+        counts = Counter(
+            post.sentiment for post in self._posts if post.workspace_id == workspace_id
+        )
         return SentimentDistribution(
             positive=counts["positive"],
             neutral=counts["neutral"],
             negative=counts["negative"],
         )
 
-    def get_daily_activity(self, limit: int = 30) -> list[ActivityPoint]:
-        counts = Counter(post.created_at.date().isoformat() for post in self._posts)
+    def get_daily_activity(self, workspace_id: str, limit: int = 30) -> list[ActivityPoint]:
+        counts = Counter(
+            post.created_at.date().isoformat()
+            for post in self._posts
+            if post.workspace_id == workspace_id
+        )
         rows = [ActivityPoint(date=date, count=count) for date, count in sorted(counts.items())]
         return rows[-limit:]
 
-    def get_summary(self) -> SummaryStats:
-        authors = {post.author for post in self._posts}
-        return SummaryStats(total_posts=len(self._posts), total_authors=len(authors))
+    def get_summary(self, workspace_id: str) -> SummaryStats:
+        posts = [post for post in self._posts if post.workspace_id == workspace_id]
+        authors = {post.author for post in posts}
+        return SummaryStats(total_posts=len(posts), total_authors=len(authors))
 
-    def _apply_filters(self, filters: PostFilters) -> list[PostRead]:
-        posts = self._posts
+    def _apply_filters(self, workspace_id: str, filters: PostFilters) -> list[PostRead]:
+        posts = [post for post in self._posts if post.workspace_id == workspace_id]
         if filters.platform:
             posts = [post for post in posts if post.platform == filters.platform]
         if filters.sentiment:

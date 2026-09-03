@@ -17,6 +17,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Replace the posts table content instead of appending rows.",
     )
+    parser.add_argument(
+        "--workspace-id",
+        required=True,
+        help="Workspace UUID that will own the generated posts.",
+    )
     return parser.parse_args()
 
 
@@ -29,7 +34,9 @@ def main() -> None:
     repository = BigQueryPostRepository(settings)
     repository.initialize()
 
-    posts = BigQuerySeedFactory(analyzer=SpacyNLPAnalyzer()).generate_posts(args.count)
+    posts = BigQuerySeedFactory(analyzer=SpacyNLPAnalyzer()).generate_posts(
+        args.count, args.workspace_id
+    )
     inserted = repository.create_posts(posts, replace=args.replace)
     mode = "replaced" if args.replace else "appended"
     logger.warning("Seed %s %s BigQuery posts.", mode, inserted)

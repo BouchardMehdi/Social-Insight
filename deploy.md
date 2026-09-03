@@ -62,8 +62,13 @@ SOCIAL_INSIGHT_SEED_ON_STARTUP=false
 SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT=social-insight-499111
 SOCIAL_INSIGHT_BIGQUERY_DATASET=social_insight
 SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE=posts
+SOCIAL_INSIGHT_BIGQUERY_USERS_TABLE=users
+SOCIAL_INSIGHT_BIGQUERY_WORKSPACES_TABLE=workspaces
+SOCIAL_INSIGHT_BIGQUERY_MEMBERSHIPS_TABLE=workspace_memberships
 SOCIAL_INSIGHT_BIGQUERY_LOCATION=EU
 SOCIAL_INSIGHT_CORS_ORIGINS=["https://social-insight.bouchard-mehdi.fr"]
+SOCIAL_INSIGHT_AUTH_SECRET_KEY=replace-with-a-random-secret-of-at-least-32-characters
+SOCIAL_INSIGHT_AUTH_TOKEN_EXPIRE_MINUTES=720
 
 GOOGLE_SERVICE_ACCOUNT_KEY_FILE=social-insight-499111-31925cd65113.json
 GOOGLE_APPLICATION_CREDENTIALS=/secrets/social-insight-gcp-key.json
@@ -72,6 +77,14 @@ VITE_API_BASE_URL=/api
 FRONTEND_PORT=8090
 BACKEND_PORT=3010
 ```
+
+Generer une valeur aleatoire pour `SOCIAL_INSIGHT_AUTH_SECRET_KEY`, par exemple :
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
+Ne jamais utiliser la valeur de demonstration en production.
 
 ## 4. Ajouter la cle Google Cloud
 
@@ -127,7 +140,7 @@ Lancer le seed apres avoir verifie que l'API demarre correctement :
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+  python -m app.scripts.seed_bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```
 
 `--replace` remplace le contenu de la table `posts`. C'est pratique avec BigQuery Sandbox si les donnees expirent ou si tu veux repartir sur un dashboard propre.
@@ -233,5 +246,5 @@ Reseeder BigQuery :
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+  python -m app.scripts.seed_bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```

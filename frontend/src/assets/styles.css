@@ -94,6 +94,24 @@ a {
   gap: 6px;
 }
 
+.workspace-switcher {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 18px;
+}
+
+.workspace-switcher span {
+  color: #8ea0b7;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workspace-switcher select {
+  min-width: 0;
+  font-size: 0.86rem;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
@@ -113,6 +131,37 @@ a {
 .main-panel {
   min-width: 0;
   padding: 34px;
+}
+
+.account-panel {
+  position: absolute;
+  right: 16px;
+  bottom: 20px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.account-panel span {
+  min-width: 0;
+}
+
+.account-panel strong,
+.account-panel small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-panel small {
+  margin-top: 3px;
+  color: #8ea0b7;
+  font-size: 0.72rem;
 }
 
 .page-stack {
@@ -419,6 +468,174 @@ th {
   gap: 14px;
 }
 
+.auth-page {
+  display: grid;
+  min-height: 100vh;
+  padding: 28px 16px;
+  place-items: center;
+}
+
+.auth-card {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 460px);
+  padding: 30px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(20, 26, 33, 0.94);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+}
+
+.auth-logo {
+  width: 220px;
+  max-width: 100%;
+}
+
+.auth-intro,
+.demo-hint {
+  margin: 10px 0 0;
+  color: #9fb1c7;
+  line-height: 1.55;
+}
+
+.auth-form {
+  display: grid;
+  gap: 15px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 8px;
+  color: #c9d7e8;
+}
+
+.auth-switch {
+  margin: 0;
+  color: #9fb1c7;
+  text-align: center;
+}
+
+.auth-switch a {
+  color: #35d3ff;
+  font-weight: 700;
+}
+
+.demo-hint {
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(53, 211, 255, 0.07);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.workspace-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.workspace-card {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  min-height: 92px;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 8px;
+  color: #dbe8f7;
+  background: rgba(20, 26, 33, 0.86);
+  text-align: left;
+}
+
+.workspace-card.active {
+  border-color: rgba(53, 211, 255, 0.65);
+  background: rgba(53, 211, 255, 0.1);
+}
+
+.workspace-card span,
+.workspace-card strong,
+.workspace-card small {
+  display: block;
+}
+
+.workspace-card small {
+  margin-top: 5px;
+  color: #8ea0b7;
+  text-transform: capitalize;
+}
+
+.workspace-form {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.7fr) auto;
+  align-items: end;
+  gap: 14px;
+}
+
+.workspace-form p {
+  margin: 8px 0 0;
+  color: #9fb1c7;
+}
+
+.members-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.members-panel .panel-header p {
+  margin: 7px 0 0;
+  color: #9fb1c7;
+}
+
+.member-list {
+  display: grid;
+  gap: 8px;
+}
+
+.member-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.member-row strong,
+.member-row small {
+  display: block;
+}
+
+.member-row small {
+  margin-top: 4px;
+  color: #8ea0b7;
+}
+
+.role-pill {
+  padding: 5px 9px;
+  border-radius: 8px;
+  color: #8ff4d3;
+  background: rgba(39, 214, 162, 0.1);
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.member-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(150px, 0.35fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.member-form label {
+  display: grid;
+  gap: 7px;
+  color: #c9d7e8;
+}
+
 .form-panel label {
   display: grid;
   gap: 8px;
@@ -635,8 +852,19 @@ th {
   .form-grid,
   .analytics-grid,
   .metadata-grid,
-  .toolbar {
+  .toolbar,
+  .workspace-grid,
+  .workspace-form {
     grid-template-columns: 1fr;
+  }
+
+  .member-form {
+    grid-template-columns: 1fr;
+  }
+
+  .account-panel {
+    position: static;
+    margin-top: 16px;
   }
 }
 

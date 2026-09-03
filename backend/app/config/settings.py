@@ -1,7 +1,7 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     google_cloud_project: str | None = None
     bigquery_dataset: str = "social_insight"
     bigquery_posts_table: str = "posts"
+    bigquery_users_table: str = "users"
+    bigquery_workspaces_table: str = "workspaces"
+    bigquery_memberships_table: str = "workspace_memberships"
     bigquery_location: str = "EU"
     google_application_credentials: str | None = Field(
         default=None,
@@ -33,6 +36,23 @@ class Settings(BaseSettings):
             "http://localhost:8080",
         ]
     )
+
+    auth_secret_key: str = Field(default="local-development-secret-change-me", min_length=32)
+    auth_token_expire_minutes: int = Field(default=720, ge=5, le=10080)
+    auth_token_issuer: str = "social-insight"
+    demo_email: str = "demo@social-insight.local"
+    demo_password: str = "demo-social-insight"
+    demo_display_name: str = "Compte démo"
+    demo_workspace_name: str = "Espace de démonstration"
+
+    @model_validator(mode="after")
+    def reject_default_production_secret(self) -> Self:
+        if (
+            self.environment.casefold() == "production"
+            and self.auth_secret_key == "local-development-secret-change-me"
+        ):
+            raise ValueError("SOCIAL_INSIGHT_AUTH_SECRET_KEY must be changed in production.")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=".env",

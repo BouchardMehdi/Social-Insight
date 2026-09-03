@@ -57,6 +57,8 @@ Le projet ne cherche pas a etre un produit commercial complet. Il sert surtout a
   - extraction de mots-cles.
 - Stockage cloud dans Google BigQuery.
 - Mode local `memory` pour tester sans Google Cloud.
+- Authentification par jeton et espaces de travail isoles.
+- Roles d'espace `owner`, `admin` et `member`.
 - Dashboard analytique :
   - nombre total de posts ;
   - nombre d'auteurs ;
@@ -219,13 +221,14 @@ BigQuery est le datastore principal du projet.
 Au demarrage, le backend cree automatiquement :
 
 - dataset : `social_insight`
-- table : `posts`
+- tables : `posts`, `users`, `workspaces` et `workspace_memberships`
 
 Schema :
 
 | Colonne | Type BigQuery | Mode |
 | --- | --- | --- |
 | `id` | STRING | REQUIRED |
+| `workspace_id` | STRING | NULLABLE |
 | `platform` | STRING | REQUIRED |
 | `author` | STRING | REQUIRED |
 | `content` | STRING | REQUIRED |
@@ -234,6 +237,10 @@ Schema :
 | `keywords` | STRING | REPEATED |
 | `created_at` | TIMESTAMP | REQUIRED |
 | `inserted_at` | TIMESTAMP | REQUIRED |
+
+Lors de la premiere mise a jour d'une table existante, la colonne `workspace_id` est
+ajoutee automatiquement. Les anciennes lignes sans espace restent masquees ; relancer
+le seed avec `--workspace-id` permet de les remplacer par des donnees accessibles.
 
 Les statistiques sont calculees directement avec SQL BigQuery dans `backend/app/repositories/bigquery.py`.
 
@@ -244,6 +251,7 @@ SELECT
   sentiment,
   COUNT(*) AS count
 FROM `social-insight-499111.social_insight.posts`
+WHERE workspace_id = @workspace_id
 GROUP BY sentiment;
 ```
 
@@ -295,7 +303,14 @@ SOCIAL_INSIGHT_SEED_ON_STARTUP=true
 SOCIAL_INSIGHT_SEED_POSTS_COUNT=600
 ```
 
-Au demarrage, l'API remplit le repository memoire si celui-ci est vide.
+Au demarrage, l'API cree un compte de demonstration et remplit son espace si celui-ci est vide.
+
+Identifiants locaux :
+
+```text
+demo@social-insight.local
+demo-social-insight
+```
 
 ### Seed controle BigQuery
 
@@ -303,17 +318,19 @@ Pour remplir BigQuery avec 1000 posts de demonstration :
 
 ```bash
 cd backend
-poetry run seed-bigquery --count 1000 --replace
+poetry run seed-bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```
 
 Avec Docker :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml run --rm backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+  python -m app.scripts.seed_bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```
 
 `--replace` remplace le contenu de la table par les donnees generees.
+
+L'identifiant de l'espace est retourne par `GET /api/auth/me` apres connexion.
 
 Sans `--replace`, la commande ajoute les posts a la table existante.
 
@@ -366,7 +383,7 @@ Seeder BigQuery :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+  python -m app.scripts.seed_bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```
 
 Sur un VPS, l'ordre recommande est :
@@ -428,7 +445,12 @@ VITE_API_BASE_URL=http://localhost:8000/api
 | `SOCIAL_INSIGHT_GOOGLE_CLOUD_PROJECT` | ID du projet Google Cloud | `social-insight-499111` |
 | `SOCIAL_INSIGHT_BIGQUERY_DATASET` | Dataset BigQuery | `social_insight` |
 | `SOCIAL_INSIGHT_BIGQUERY_POSTS_TABLE` | Table BigQuery | `posts` |
+| `SOCIAL_INSIGHT_BIGQUERY_USERS_TABLE` | Table des utilisateurs | `users` |
+| `SOCIAL_INSIGHT_BIGQUERY_WORKSPACES_TABLE` | Table des espaces | `workspaces` |
+| `SOCIAL_INSIGHT_BIGQUERY_MEMBERSHIPS_TABLE` | Table des appartenances | `workspace_memberships` |
 | `SOCIAL_INSIGHT_BIGQUERY_LOCATION` | Region BigQuery | `EU` |
+| `SOCIAL_INSIGHT_AUTH_SECRET_KEY` | Secret de signature des jetons, 32 caracteres minimum | valeur aleatoire |
+| `SOCIAL_INSIGHT_AUTH_TOKEN_EXPIRE_MINUTES` | Duree de vie d'un jeton | `720` |
 | `SOCIAL_INSIGHT_SEED_ON_STARTUP` | Seed automatique au demarrage | `true` ou `false` |
 | `SOCIAL_INSIGHT_SEED_POSTS_COUNT` | Nombre de posts seedes | `600` |
 | `SOCIAL_INSIGHT_LOG_LEVEL` | Niveau de logs | `INFO` |
@@ -478,6 +500,35 @@ Reponse :
   "sentiment": "positive",
   "keywords": ["intelligence artificielle", "entreprises"]
 }
+```
+
+### Authentification
+
+```http
+POST /api/auth/register
+POST /api/auth/login
+GET /api/auth/me
+```
+
+L'inscription cree automatiquement un premier espace avec le role `owner`.
+
+### Espaces de travail
+
+```http
+GET /api/workspaces
+POST /api/workspaces
+GET /api/workspaces/{workspace_id}/members
+POST /api/workspaces/{workspace_id}/members
+```
+
+Un owner ou un admin peut ajouter un utilisateur deja inscrit. Seul l'owner peut
+attribuer le role `admin`.
+
+Toutes les routes NLP, posts et statistiques exigent ensuite :
+
+```http
+Authorization: Bearer <access-token>
+X-Workspace-ID: <workspace-id>
 ```
 
 ### Creation d'un post
@@ -639,7 +690,7 @@ Relancer le seed :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+  python -m app.scripts.seed_bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```
 
 ## Preparation Cloud Run
@@ -657,6 +708,13 @@ Le backend est pret pour un futur deploiement Cloud Run :
 En production Cloud Run, il vaut mieux eviter les cles JSON et utiliser le service account attache au service Cloud Run.
 
 ## Securite
+
+Les mots de passe sont derives avec PBKDF2-HMAC-SHA256, avec un sel unique. L'API ne
+retourne jamais le hash. Les jetons sont signes et chaque requete de donnees verifie
+l'appartenance de l'utilisateur a l'espace demande.
+
+En production, remplacer obligatoirement `SOCIAL_INSIGHT_AUTH_SECRET_KEY` par une valeur
+aleatoire longue et conserver cette valeur hors du depot.
 
 Fichiers sensibles ignores par Git :
 
@@ -718,7 +776,7 @@ Seed BigQuery :
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.bigquery.local.yml exec backend \
-  python -m app.scripts.seed_bigquery --count 1000 --replace
+  python -m app.scripts.seed_bigquery --count 1000 --replace --workspace-id <workspace-id>
 ```
 
 Tests backend :

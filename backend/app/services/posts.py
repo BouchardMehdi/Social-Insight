@@ -11,11 +11,12 @@ class PostService:
         self.repository = repository
         self.analyzer = analyzer
 
-    def create_post(self, payload: PostCreate) -> PostRead:
+    def create_post(self, workspace_id: str, payload: PostCreate) -> PostRead:
         analysis = self.analyzer.analyze(payload.content)
         now = datetime.now(UTC)
         post = PostRead(
             id=str(uuid4()),
+            workspace_id=workspace_id,
             platform=payload.platform.lower(),
             author=payload.author,
             content=payload.content,
@@ -27,8 +28,8 @@ class PostService:
         )
         return self.repository.create_post(post)
 
-    def list_posts(self, filters: PostFilters) -> PostListResponse:
-        posts, total = self.repository.list_posts(filters)
+    def list_posts(self, workspace_id: str, filters: PostFilters) -> PostListResponse:
+        posts, total = self.repository.list_posts(workspace_id, filters)
         return PostListResponse(
             items=posts,
             total=total,
@@ -36,5 +37,5 @@ class PostService:
             offset=filters.offset,
         )
 
-    def get_post(self, post_id: str) -> PostRead | None:
-        return self.repository.get_post(post_id)
+    def get_post(self, workspace_id: str, post_id: str) -> PostRead | None:
+        return self.repository.get_post(workspace_id, post_id)
