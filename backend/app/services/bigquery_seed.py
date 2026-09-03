@@ -93,8 +93,13 @@ class BigQuerySeedFactory:
                     author=author,
                     content=content,
                     language=analysis.language,
+                    language_confidence=analysis.language_confidence,
                     sentiment=analysis.sentiment,
+                    sentiment_confidence=analysis.sentiment_confidence,
                     keywords=analysis.keywords,
+                    model_version=analysis.model_version,
+                    analysis_status=analysis.analysis_status,
+                    analysis_error=None,
                     created_at=created_at,
                     inserted_at=now,
                 )

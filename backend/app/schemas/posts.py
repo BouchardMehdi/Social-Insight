@@ -3,7 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.schemas.nlp import Sentiment
+from app.schemas.nlp import AnalysisStatus, Sentiment
 
 
 class PostCreate(BaseModel):
@@ -23,8 +23,13 @@ class PostRead(BaseModel):
     author: str
     content: str
     language: str
+    language_confidence: float = Field(ge=0, le=1)
     sentiment: Sentiment
+    sentiment_confidence: float = Field(ge=0, le=1)
     keywords: list[str]
+    model_version: str
+    analysis_status: AnalysisStatus = "completed"
+    analysis_error: str | None = None
     created_at: datetime
     inserted_at: datetime
 

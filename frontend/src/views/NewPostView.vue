@@ -46,8 +46,12 @@ async function submitPost() {
     const post = await posts.create(form)
     analysis.value = {
       language: post.language,
+      language_confidence: post.language_confidence,
       sentiment: post.sentiment,
+      sentiment_confidence: post.sentiment_confidence,
       keywords: post.keywords,
+      model_version: post.model_version,
+      analysis_status: post.analysis_status,
     }
     form.author = ''
     form.content = ''
@@ -117,11 +121,18 @@ async function submitPost() {
         <div v-if="analysis" class="analysis-result">
           <div>
             <span class="stat-label">Langue</span>
-            <strong>{{ analysis.language }}</strong>
+            <strong>{{ analysis.language }} · {{ Math.round(analysis.language_confidence * 100) }} %</strong>
           </div>
           <div>
             <span class="stat-label">Sentiment</span>
-            <SentimentBadge :sentiment="analysis.sentiment" />
+            <SentimentBadge
+              :sentiment="analysis.sentiment"
+              :confidence="analysis.sentiment_confidence"
+            />
+          </div>
+          <div>
+            <span class="stat-label">Modèle</span>
+            <strong>{{ analysis.model_version }}</strong>
           </div>
           <div class="keyword-cloud">
             <span v-for="keyword in analysis.keywords" :key="keyword">{{ keyword }}</span>

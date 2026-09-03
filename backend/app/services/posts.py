@@ -21,8 +21,13 @@ class PostService:
             author=payload.author,
             content=payload.content,
             language=analysis.language,
+            language_confidence=analysis.language_confidence,
             sentiment=analysis.sentiment,
+            sentiment_confidence=analysis.sentiment_confidence,
             keywords=analysis.keywords,
+            model_version=analysis.model_version,
+            analysis_status=analysis.analysis_status,
+            analysis_error=None,
             created_at=now,
             inserted_at=now,
         )

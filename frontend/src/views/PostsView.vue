@@ -73,7 +73,12 @@ onMounted(() => fetchPage(0))
           <tr v-for="post in posts.items" :key="post.id">
             <td>{{ post.author }}</td>
             <td>{{ post.platform }}</td>
-            <td><SentimentBadge :sentiment="post.sentiment" /></td>
+            <td>
+              <SentimentBadge
+                :sentiment="post.sentiment"
+                :confidence="post.sentiment_confidence"
+              />
+            </td>
             <td>{{ new Date(post.created_at).toLocaleDateString('fr-FR') }}</td>
             <td class="content-cell">{{ post.content }}</td>
             <td>

@@ -435,6 +435,12 @@ th {
   text-transform: capitalize;
 }
 
+.sentiment-badge small {
+  margin-left: 6px;
+  opacity: 0.8;
+  font-size: 0.72rem;
+}
+
 .sentiment-positive {
   color: #9cf5d7;
   background: rgba(39, 214, 162, 0.13);
@@ -818,6 +824,23 @@ th {
   margin: 10px 0 0;
   color: #edf4ff;
   font-weight: 700;
+}
+
+.analysis-status {
+  text-transform: capitalize;
+}
+
+.status-completed {
+  color: #8ff4d3 !important;
+}
+
+.status-failed {
+  color: #ffb4c2 !important;
+}
+
+.status-pending,
+.status-processing {
+  color: #ffe2aa !important;
 }
 
 @media (max-width: 980px) {

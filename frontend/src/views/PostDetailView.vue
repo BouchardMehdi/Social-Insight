@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
-import { ArrowLeft, CalendarDays, Hash, UserRound } from '@lucide/vue'
+import { ArrowLeft, CalendarDays, Cpu, Gauge, Hash, Languages, UserRound } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 
 import ErrorBanner from '../components/ErrorBanner.vue'
@@ -43,7 +43,10 @@ watch(postId, loadPost)
           <p class="eyebrow">{{ posts.selected.platform }}</p>
           <h2>{{ posts.selected.author }}</h2>
         </div>
-        <SentimentBadge :sentiment="posts.selected.sentiment" />
+        <SentimentBadge
+          :sentiment="posts.selected.sentiment"
+          :confidence="posts.selected.sentiment_confidence"
+        />
       </header>
 
       <p class="post-content">{{ posts.selected.content }}</p>
@@ -58,8 +61,24 @@ watch(postId, loadPost)
           <dd>{{ new Date(posts.selected.created_at).toLocaleString('fr-FR') }}</dd>
         </div>
         <div>
-          <dt><Hash :size="16" /> Langue</dt>
-          <dd>{{ posts.selected.language }}</dd>
+          <dt><Languages :size="16" /> Langue</dt>
+          <dd>
+            {{ posts.selected.language }} · {{ Math.round(posts.selected.language_confidence * 100) }} %
+          </dd>
+        </div>
+        <div>
+          <dt><Gauge :size="16" /> Confiance sentiment</dt>
+          <dd>{{ Math.round(posts.selected.sentiment_confidence * 100) }} %</dd>
+        </div>
+        <div>
+          <dt><Cpu :size="16" /> Modèle</dt>
+          <dd>{{ posts.selected.model_version }}</dd>
+        </div>
+        <div>
+          <dt><Hash :size="16" /> Statut</dt>
+          <dd class="analysis-status" :class="`status-${posts.selected.analysis_status}`">
+            {{ posts.selected.analysis_status }}
+          </dd>
         </div>
       </dl>
 

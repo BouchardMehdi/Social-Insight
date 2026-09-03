@@ -26,7 +26,12 @@ def test_create_post_runs_nlp_and_normalizes_platform(client: TestClient) -> Non
 
     assert post["platform"] == "twitter"
     assert post["language"] == "fr"
+    assert post["language_confidence"] >= 0.5
     assert post["sentiment"] == "positive"
+    assert post["sentiment_confidence"] > 0.5
+    assert post["model_version"] == "spacy-rules-fr-en-v2"
+    assert post["analysis_status"] == "completed"
+    assert post["analysis_error"] is None
     assert post["keywords"]
     assert post["created_at"]
     assert post["inserted_at"]

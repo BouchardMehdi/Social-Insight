@@ -84,8 +84,13 @@ class BigQueryPostRepository(PostRepository):
                 author,
                 content,
                 language,
+                language_confidence,
                 sentiment,
+                sentiment_confidence,
                 keywords,
+                model_version,
+                analysis_status,
+                analysis_error,
                 created_at,
                 inserted_at
             FROM `{self.table_id}`
@@ -108,8 +113,13 @@ class BigQueryPostRepository(PostRepository):
                 author,
                 content,
                 language,
+                language_confidence,
                 sentiment,
+                sentiment_confidence,
                 keywords,
+                model_version,
+                analysis_status,
+                analysis_error,
                 created_at,
                 inserted_at
             FROM `{self.table_id}`
@@ -228,10 +238,14 @@ class BigQueryPostRepository(PostRepository):
             self.client.create_table(table)
             return
 
-        if "workspace_id" not in {field.name for field in existing_table.schema}:
+        existing_fields = {field.name for field in existing_table.schema}
+        missing_fields = [
+            field for field in self._posts_schema() if field.name not in existing_fields
+        ]
+        if missing_fields:
             existing_table.schema = [
                 *existing_table.schema,
-                bigquery.SchemaField("workspace_id", "STRING", mode="NULLABLE"),
+                *missing_fields,
             ]
             self.client.update_table(existing_table, ["schema"])
 
@@ -244,8 +258,13 @@ class BigQueryPostRepository(PostRepository):
             bigquery.SchemaField("author", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("content", "STRING", mode="REQUIRED"),
             bigquery.SchemaField("language", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("language_confidence", "FLOAT", mode="NULLABLE"),
             bigquery.SchemaField("sentiment", "STRING", mode="REQUIRED"),
+            bigquery.SchemaField("sentiment_confidence", "FLOAT", mode="NULLABLE"),
             bigquery.SchemaField("keywords", "STRING", mode="REPEATED"),
+            bigquery.SchemaField("model_version", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("analysis_status", "STRING", mode="NULLABLE"),
+            bigquery.SchemaField("analysis_error", "STRING", mode="NULLABLE"),
             bigquery.SchemaField("created_at", "TIMESTAMP", mode="REQUIRED"),
             bigquery.SchemaField("inserted_at", "TIMESTAMP", mode="REQUIRED"),
         ]
@@ -286,8 +305,13 @@ class BigQueryPostRepository(PostRepository):
             author=row.author,
             content=row.content,
             language=row.language,
+            language_confidence=float(row.language_confidence or 0),
             sentiment=row.sentiment,
+            sentiment_confidence=float(row.sentiment_confidence or 0),
             keywords=list(row.keywords or []),
+            model_version=row.model_version or "legacy-v1",
+            analysis_status=row.analysis_status or "completed",
+            analysis_error=row.analysis_error,
             created_at=to_datetime(row.created_at),
             inserted_at=to_datetime(row.inserted_at),
         )

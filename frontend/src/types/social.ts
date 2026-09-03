@@ -1,4 +1,5 @@
 export type Sentiment = 'positive' | 'neutral' | 'negative'
+export type AnalysisStatus = 'pending' | 'processing' | 'completed' | 'failed'
 
 export interface Post {
   id: string
@@ -7,8 +8,13 @@ export interface Post {
   author: string
   content: string
   language: string
+  language_confidence: number
   sentiment: Sentiment
+  sentiment_confidence: number
   keywords: string[]
+  model_version: string
+  analysis_status: AnalysisStatus
+  analysis_error: string | null
   created_at: string
   inserted_at: string
 }
@@ -28,8 +34,12 @@ export interface PostListResponse {
 
 export interface AnalyzeResponse {
   language: string
+  language_confidence: number
   sentiment: Sentiment
+  sentiment_confidence: number
   keywords: string[]
+  model_version: string
+  analysis_status: AnalysisStatus
 }
 
 export interface TopKeyword {

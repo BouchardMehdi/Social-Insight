@@ -52,9 +52,11 @@ Le projet ne cherche pas a etre un produit commercial complet. Il sert surtout a
 
 - Ingestion de posts sociaux via API et formulaire frontend.
 - Analyse NLP :
-  - detection de langue ;
-  - sentiment `positive`, `neutral`, `negative` ;
-  - extraction de mots-cles.
+  - detection de langue francais/anglais avec confiance ;
+  - sentiment `positive`, `neutral`, `negative` avec confiance ;
+  - negations et intensificateurs ;
+  - normalisation des accents et extraction de mots-cles ;
+  - version et statut de l'analyse.
 - Stockage cloud dans Google BigQuery.
 - Mode local `memory` pour tester sans Google Cloud.
 - Authentification par jeton et espaces de travail isoles.
@@ -205,8 +207,11 @@ Exemple : creation d'un post.
 4. `PostService` appelle le service NLP.
 5. Le service NLP retourne :
    - langue ;
+   - confiance de langue ;
    - sentiment ;
-   - keywords.
+   - confiance du sentiment ;
+   - keywords ;
+   - version et statut du modele.
 6. `PostService` construit un objet `PostRead`.
 7. Le repository persiste le post :
    - en memoire en mode local ;
@@ -233,8 +238,13 @@ Schema :
 | `author` | STRING | REQUIRED |
 | `content` | STRING | REQUIRED |
 | `language` | STRING | REQUIRED |
+| `language_confidence` | FLOAT | NULLABLE |
 | `sentiment` | STRING | REQUIRED |
+| `sentiment_confidence` | FLOAT | NULLABLE |
 | `keywords` | STRING | REPEATED |
+| `model_version` | STRING | NULLABLE |
+| `analysis_status` | STRING | NULLABLE |
+| `analysis_error` | STRING | NULLABLE |
 | `created_at` | TIMESTAMP | REQUIRED |
 | `inserted_at` | TIMESTAMP | REQUIRED |
 
@@ -497,10 +507,19 @@ Reponse :
 ```json
 {
   "language": "fr",
+  "language_confidence": 1.0,
   "sentiment": "positive",
-  "keywords": ["intelligence artificielle", "entreprises"]
+  "sentiment_confidence": 0.84,
+  "keywords": ["intelligence artificielle", "entreprises"],
+  "model_version": "spacy-rules-fr-en-v2",
+  "analysis_status": "completed"
 }
 ```
+
+La version v2 reste locale et deterministe : elle utilise la tokenisation spaCy et des
+regles explicables, sans appel a une API payante. Elle gere le francais et l'anglais,
+les accents, les negations courtes comme `pas bon` et les intensificateurs comme
+`tres utile` ou `really great`.
 
 ### Authentification
 

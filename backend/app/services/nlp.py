@@ -1,8 +1,10 @@
+import unicodedata
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import ClassVar
 
 import spacy
+from spacy.lang.en.stop_words import STOP_WORDS as EN_STOP_WORDS
 from spacy.lang.fr.stop_words import STOP_WORDS as FR_STOP_WORDS
 from spacy.language import Language
 
@@ -17,44 +19,93 @@ class NLPAnalyzer(ABC):
 
 @dataclass(slots=True)
 class SpacyNLPAnalyzer(NLPAnalyzer):
-    """Rule-based spaCy analyzer designed to be replaced by a richer model later."""
+    """Deterministic bilingual NLP baseline with explainable sentiment rules."""
 
+    model_version: str = "spacy-rules-fr-en-v2"
     max_keywords: int = 8
     nlp: Language = field(init=False, repr=False)
+    fr_stop_words: set[str] = field(init=False, repr=False)
+    en_stop_words: set[str] = field(init=False, repr=False)
     stop_words: set[str] = field(init=False, repr=False)
 
     positive_terms: ClassVar[set[str]] = {
+        "adore",
         "ameliore",
-        "améliore",
+        "bon",
+        "bonne",
         "excellent",
+        "fast",
+        "fiable",
         "fort",
         "genial",
-        "génial",
-        "innovation",
+        "geniale",
+        "good",
+        "great",
+        "happy",
+        "helpful",
         "innovant",
+        "innovation",
+        "innovative",
+        "love",
         "opportunite",
-        "opportunité",
         "positif",
+        "rapide",
+        "reliable",
         "reussi",
-        "réussi",
+        "satisfait",
+        "satisfaction",
+        "success",
+        "succes",
         "transforme",
+        "useful",
         "utile",
     }
     negative_terms: ClassVar[set[str]] = {
+        "bad",
         "bug",
         "crise",
         "decevant",
-        "décevant",
+        "deteste",
         "difficile",
+        "disappointing",
         "echec",
-        "échec",
+        "erreur",
+        "failed",
+        "failure",
+        "hate",
+        "insatisfait",
+        "issue",
         "lent",
         "mauvais",
         "negatif",
-        "négatif",
+        "nul",
+        "panne",
+        "problem",
         "probleme",
-        "problème",
+        "retard",
+        "risk",
         "risque",
+        "slow",
+        "terrible",
+    }
+    negations: ClassVar[set[str]] = {
+        "aucun",
+        "jamais",
+        "ne",
+        "never",
+        "no",
+        "not",
+        "pas",
+    }
+    intensifiers: ClassVar[set[str]] = {
+        "extremely",
+        "really",
+        "super",
+        "tellement",
+        "totalement",
+        "tres",
+        "very",
+        "vraiment",
     }
     french_markers: ClassVar[set[str]] = {
         "avec",
@@ -67,41 +118,98 @@ class SpacyNLPAnalyzer(NLPAnalyzer):
         "les",
         "pour",
         "une",
-        "transforme",
+    }
+    english_markers: ClassVar[set[str]] = {
+        "and",
+        "are",
+        "for",
+        "from",
+        "is",
+        "of",
+        "the",
+        "this",
+        "to",
+        "with",
     }
 
     def __post_init__(self) -> None:
         self.nlp = spacy.blank("fr")
-        self.stop_words = {self._normalize(word) for word in FR_STOP_WORDS}
+        self.fr_stop_words = {self._normalize(word) for word in FR_STOP_WORDS}
+        self.en_stop_words = {self._normalize(word) for word in EN_STOP_WORDS}
+        self.stop_words = self.fr_stop_words | self.en_stop_words
 
     def analyze(self, text: str) -> AnalyzeResponse:
         doc = self.nlp(text)
-        normalized_tokens = [
+        tokens = [
             self._normalize(token.text)
             for token in doc
             if token.is_alpha and len(token.text.strip()) > 1
         ]
-        language = self._detect_language(normalized_tokens)
-        sentiment = self._detect_sentiment(normalized_tokens)
-        keywords = self._extract_keywords(normalized_tokens)
-        return AnalyzeResponse(language=language, sentiment=sentiment, keywords=keywords)
-
-    def _detect_language(self, tokens: list[str]) -> str:
-        if not tokens:
-            return "unknown"
-        french_hits = sum(
-            1 for token in tokens if token in self.french_markers or token in self.stop_words
+        language, language_confidence = self._detect_language(tokens)
+        sentiment, sentiment_confidence = self._detect_sentiment(tokens)
+        return AnalyzeResponse(
+            language=language,
+            language_confidence=language_confidence,
+            sentiment=sentiment,
+            sentiment_confidence=sentiment_confidence,
+            keywords=self._extract_keywords(tokens),
+            model_version=self.model_version,
+            analysis_status="completed",
         )
-        return "fr" if french_hits / len(tokens) >= 0.15 else "en"
 
-    def _detect_sentiment(self, tokens: list[str]) -> Sentiment:
-        positive_score = sum(1 for token in tokens if token in self.positive_terms)
-        negative_score = sum(1 for token in tokens if token in self.negative_terms)
-        if positive_score > negative_score:
-            return "positive"
-        if negative_score > positive_score:
-            return "negative"
-        return "neutral"
+    def _detect_language(self, tokens: list[str]) -> tuple[str, float]:
+        if not tokens:
+            return "unknown", 0.0
+        french_hits = sum(
+            1 for token in tokens if token in self.french_markers or token in self.fr_stop_words
+        )
+        english_hits = sum(
+            1 for token in tokens if token in self.english_markers or token in self.en_stop_words
+        )
+        if french_hits == english_hits == 0:
+            return "unknown", 0.0
+        language = "fr" if french_hits >= english_hits else "en"
+        confidence = 0.5 + abs(french_hits - english_hits) / (
+            2 * max(1, french_hits + english_hits)
+        )
+        return language, round(min(confidence, 1.0), 3)
+
+    def _detect_sentiment(self, tokens: list[str]) -> tuple[Sentiment, float]:
+        positive_score = 0.0
+        negative_score = 0.0
+
+        for index, token in enumerate(tokens):
+            if token not in self.positive_terms and token not in self.negative_terms:
+                continue
+            context = tokens[max(0, index - 2) : index]
+            weight = 1.5 if context and context[-1] in self.intensifiers else 1.0
+            negated = any(candidate in self.negations for candidate in context)
+
+            is_positive = token in self.positive_terms
+            if negated:
+                is_positive = not is_positive
+            if is_positive:
+                positive_score += weight
+            else:
+                negative_score += weight
+
+        total_score = positive_score + negative_score
+        difference = positive_score - negative_score
+        if difference > 0:
+            sentiment: Sentiment = "positive"
+        elif difference < 0:
+            sentiment = "negative"
+        else:
+            sentiment = "neutral"
+
+        if total_score == 0:
+            confidence = 0.5
+        elif difference == 0:
+            confidence = min(0.9, 0.55 + 0.05 * total_score)
+        else:
+            signal_ratio = abs(difference) / total_score
+            confidence = min(0.99, 0.55 + 0.25 * signal_ratio + 0.04 * abs(difference))
+        return sentiment, round(confidence, 3)
 
     def _extract_keywords(self, tokens: list[str]) -> list[str]:
         candidates = [token for token in tokens if token not in self.stop_words and len(token) > 2]
@@ -121,4 +229,8 @@ class SpacyNLPAnalyzer(NLPAnalyzer):
 
     @staticmethod
     def _normalize(value: str) -> str:
-        return value.casefold().strip(" '’\".,;:!?()[]{}")
+        decomposed = unicodedata.normalize("NFKD", value.casefold())
+        without_accents = "".join(
+            char for char in decomposed if not unicodedata.combining(char)
+        )
+        return without_accents.strip(" '’\".,;:!?()[]{}")
