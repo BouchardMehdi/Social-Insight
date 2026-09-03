@@ -13,6 +13,7 @@ from app.api.router import api_router
 from app.config.settings import get_settings
 from app.core.error_handlers import register_error_handlers
 from app.core.logging import configure_logging
+from app.services.analysis_tasks import AnalysisTaskManager
 from app.services.auth import AuthService
 from app.services.seed import DemoSeedService
 
@@ -20,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     repository = get_post_repository()
     identity_repository = get_identity_repository()
     repository.initialize()
@@ -30,7 +31,19 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         DemoSeedService(repository=repository, analyzer=get_nlp_analyzer()).seed_if_needed(
             settings.seed_posts_count, session.active_workspace_id
         )
-    yield
+    task_manager = AnalysisTaskManager(
+        repository=repository,
+        analyzer=get_nlp_analyzer(),
+        max_workers=settings.analysis_workers,
+    )
+    app.state.analysis_task_manager = task_manager
+    recovered = task_manager.recover_incomplete(settings.analysis_recovery_limit)
+    if recovered:
+        logger.info("analysis_jobs_recovered", extra={"recovered_jobs": recovered})
+    try:
+        yield
+    finally:
+        task_manager.shutdown()
 
 
 settings = get_settings()

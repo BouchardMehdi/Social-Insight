@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, reactive } from 'vue'
+import { onMounted, onUnmounted, reactive } from 'vue'
 import { ChevronLeft, ChevronRight, Eye, Search } from '@lucide/vue'
 
 import ErrorBanner from '../components/ErrorBanner.vue'
@@ -14,6 +14,7 @@ const filters = reactive({
   sentiment: '' as Sentiment | '',
   keyword: '',
 })
+let pollingTimer: number | undefined
 
 async function fetchPage(offset = posts.offset) {
   posts.offset = offset
@@ -24,7 +25,11 @@ async function fetchPage(offset = posts.offset) {
   })
 }
 
-onMounted(() => fetchPage(0))
+onMounted(() => {
+  fetchPage(0)
+  pollingTimer = window.setInterval(() => posts.refreshPending(), 1500)
+})
+onUnmounted(() => window.clearInterval(pollingTimer))
 </script>
 
 <template>
@@ -75,9 +80,13 @@ onMounted(() => fetchPage(0))
             <td>{{ post.platform }}</td>
             <td>
               <SentimentBadge
+                v-if="post.analysis_status === 'completed'"
                 :sentiment="post.sentiment"
                 :confidence="post.sentiment_confidence"
               />
+              <span v-else class="analysis-status-pill" :class="`status-${post.analysis_status}`">
+                {{ post.analysis_status }}
+              </span>
             </td>
             <td>{{ new Date(post.created_at).toLocaleDateString('fr-FR') }}</td>
             <td class="content-cell">{{ post.content }}</td>

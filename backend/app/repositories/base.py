@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from app.schemas.nlp import AnalysisStatus, AnalyzeResponse
 from app.schemas.posts import PostFilters, PostRead
 from app.schemas.stats import ActivityPoint, SentimentDistribution, SummaryStats, TopKeyword
 
@@ -11,7 +12,27 @@ class PostRepository(ABC):
 
     @abstractmethod
     def create_post(self, post: PostRead) -> PostRead:
-        """Persist an analyzed social post."""
+        """Persist a social post."""
+
+    @abstractmethod
+    def set_analysis_status(
+        self,
+        workspace_id: str,
+        post_id: str,
+        status: AnalysisStatus,
+        error: str | None = None,
+    ) -> bool:
+        """Update the processing status of one post."""
+
+    @abstractmethod
+    def complete_post_analysis(
+        self, workspace_id: str, post_id: str, analysis: AnalyzeResponse
+    ) -> bool:
+        """Persist the completed NLP result for one post."""
+
+    @abstractmethod
+    def list_incomplete_posts(self, limit: int = 1000) -> list[PostRead]:
+        """Return pending or interrupted posts so workers can resume them."""
 
     @abstractmethod
     def list_posts(self, workspace_id: str, filters: PostFilters) -> tuple[list[PostRead], int]:

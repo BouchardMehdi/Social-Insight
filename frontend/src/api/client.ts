@@ -9,7 +9,9 @@ api.interceptors.request.use((config) => {
   const token = localStorage.getItem('social-insight-token')
   const workspaceId = localStorage.getItem('social-insight-workspace')
   if (token) config.headers.Authorization = `Bearer ${token}`
-  if (workspaceId) config.headers['X-Workspace-ID'] = workspaceId
+  if (workspaceId && !config.headers['X-Workspace-ID']) {
+    config.headers['X-Workspace-ID'] = workspaceId
+  }
   return config
 })
 

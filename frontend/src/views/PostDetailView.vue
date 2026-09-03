@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, onUnmounted, watch } from 'vue'
 import { ArrowLeft, CalendarDays, Cpu, Gauge, Hash, Languages, UserRound } from '@lucide/vue'
 import { useRoute } from 'vue-router'
 
@@ -12,12 +12,17 @@ const route = useRoute()
 const posts = usePostsStore()
 
 const postId = computed(() => String(route.params.id))
+let pollingTimer: number | undefined
 
 function loadPost() {
   posts.fetchPost(postId.value)
 }
 
-onMounted(loadPost)
+onMounted(() => {
+  loadPost()
+  pollingTimer = window.setInterval(() => posts.refreshSelectedAnalysis(), 1500)
+})
+onUnmounted(() => window.clearInterval(pollingTimer))
 watch(postId, loadPost)
 </script>
 
@@ -44,9 +49,17 @@ watch(postId, loadPost)
           <h2>{{ posts.selected.author }}</h2>
         </div>
         <SentimentBadge
+          v-if="posts.selected.analysis_status === 'completed'"
           :sentiment="posts.selected.sentiment"
           :confidence="posts.selected.sentiment_confidence"
         />
+        <span
+          v-else
+          class="analysis-status-pill"
+          :class="`status-${posts.selected.analysis_status}`"
+        >
+          {{ posts.selected.analysis_status }}
+        </span>
       </header>
 
       <p class="post-content">{{ posts.selected.content }}</p>
@@ -60,17 +73,17 @@ watch(postId, loadPost)
           <dt><CalendarDays :size="16" /> Date</dt>
           <dd>{{ new Date(posts.selected.created_at).toLocaleString('fr-FR') }}</dd>
         </div>
-        <div>
+        <div v-if="posts.selected.analysis_status === 'completed'">
           <dt><Languages :size="16" /> Langue</dt>
           <dd>
             {{ posts.selected.language }} · {{ Math.round(posts.selected.language_confidence * 100) }} %
           </dd>
         </div>
-        <div>
+        <div v-if="posts.selected.analysis_status === 'completed'">
           <dt><Gauge :size="16" /> Confiance sentiment</dt>
           <dd>{{ Math.round(posts.selected.sentiment_confidence * 100) }} %</dd>
         </div>
-        <div>
+        <div v-if="posts.selected.analysis_status === 'completed'">
           <dt><Cpu :size="16" /> Modèle</dt>
           <dd>{{ posts.selected.model_version }}</dd>
         </div>
@@ -82,7 +95,13 @@ watch(postId, loadPost)
         </div>
       </dl>
 
-      <section>
+      <ErrorBanner
+        v-if="posts.selected.analysis_status === 'failed'"
+        title="Analyse échouée"
+        :message="posts.selected.analysis_error ?? 'Le moteur NLP a rencontré une erreur.'"
+      />
+
+      <section v-if="posts.selected.analysis_status === 'completed'">
         <h2>Keywords</h2>
         <div class="keyword-cloud">
           <span v-for="keyword in posts.selected.keywords" :key="keyword">{{ keyword }}</span>

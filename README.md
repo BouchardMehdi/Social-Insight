@@ -72,6 +72,7 @@ Le projet ne cherche pas a etre un produit commercial complet. Il sert surtout a
   - acces au detail d'un post.
 - Page Analytics avec graphiques Chart.js.
 - Formulaire de creation de post.
+- Analyse des nouveaux posts en arriere-plan avec reprise apres redemarrage.
 - Seed de donnees local et seed BigQuery controle.
 - Logs JSON et `X-Request-ID`.
 - Tests Pytest.
@@ -119,6 +120,10 @@ Frontend Vue 3
        | HTTP / Axios
        v
 API FastAPI
+       |
+       | persistance immediate + workers NLP
+       v
+File de traitements locale
        |
        | Repository abstraction
        v
@@ -204,20 +209,19 @@ Exemple : creation d'un post.
 1. L'utilisateur soumet un post depuis le frontend.
 2. Vue appelle `POST /api/posts`.
 3. FastAPI valide le body avec Pydantic.
-4. `PostService` appelle le service NLP.
-5. Le service NLP retourne :
+4. `PostService` persiste le post avec le statut `pending`.
+5. L'API retourne immediatement `202 Accepted`.
+6. Un worker passe le post en `processing` et appelle le service NLP.
+7. Le service NLP retourne :
    - langue ;
    - confiance de langue ;
    - sentiment ;
    - confiance du sentiment ;
    - keywords ;
    - version et statut du modele.
-6. `PostService` construit un objet `PostRead`.
-7. Le repository persiste le post :
-   - en memoire en mode local ;
-   - dans BigQuery en mode cloud.
-8. Le frontend affiche un toast de succes.
-9. Les pages Dashboard et Analytics relisent les stats via l'API.
+8. Le repository met le post a jour en `completed`, ou en `failed` avec l'erreur.
+9. Le frontend suit le statut sans bloquer la navigation.
+10. Au redemarrage, les posts `pending` ou `processing` sont remis dans la file.
 
 ## BigQuery
 
@@ -463,6 +467,8 @@ VITE_API_BASE_URL=http://localhost:8000/api
 | `SOCIAL_INSIGHT_AUTH_TOKEN_EXPIRE_MINUTES` | Duree de vie d'un jeton | `720` |
 | `SOCIAL_INSIGHT_SEED_ON_STARTUP` | Seed automatique au demarrage | `true` ou `false` |
 | `SOCIAL_INSIGHT_SEED_POSTS_COUNT` | Nombre de posts seedes | `600` |
+| `SOCIAL_INSIGHT_ANALYSIS_WORKERS` | Nombre de workers NLP locaux | `2` |
+| `SOCIAL_INSIGHT_ANALYSIS_RECOVERY_LIMIT` | Taches reprises au demarrage | `1000` |
 | `SOCIAL_INSIGHT_LOG_LEVEL` | Niveau de logs | `INFO` |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Chemin vers la cle service account | `/secrets/key.json` |
 
@@ -555,6 +561,9 @@ X-Workspace-ID: <workspace-id>
 ```http
 POST /api/posts
 ```
+
+La route retourne `202 Accepted` avec `analysis_status: pending`. Le client peut ensuite
+interroger `GET /api/posts/{id}` jusqu'a obtenir `completed` ou `failed`.
 
 Body :
 
@@ -671,6 +680,7 @@ Les tests couvrent :
 
 - healthcheck ;
 - NLP ;
+- traitement asynchrone, echec et reprise des analyses ;
 - creation de posts ;
 - filtres ;
 - pagination ;
@@ -678,6 +688,14 @@ Les tests couvrent :
 - seed local ;
 - seed BigQuery ;
 - erreurs standardisees.
+
+### Limite du worker integre
+
+La file est executee dans le processus FastAPI pour conserver une infrastructure legere
+et gratuite. Les statuts sont persistants dans BigQuery et les taches incompletes sont
+reprises au demarrage. En revanche, plusieurs instances FastAPI peuvent soumettre la meme
+tache ; avant un deploiement multi-instance, remplacer ce gestionnaire par Cloud Tasks ou
+Pub/Sub.
 
 ## CI GitHub Actions
 

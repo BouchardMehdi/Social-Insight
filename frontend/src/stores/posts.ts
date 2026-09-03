@@ -58,5 +58,44 @@ export const usePostsStore = defineStore('posts', {
         throw new Error(getApiErrorMessage(error, 'Impossible de creer le post'))
       }
     },
+    async waitForAnalysis(postId: string, workspaceId: string) {
+      for (let attempt = 0; attempt < 75; attempt += 1) {
+        if (attempt > 0) await new Promise((resolve) => window.setTimeout(resolve, 400))
+        const post = await getPost(postId, workspaceId)
+        this.replacePost(post)
+        if (post.analysis_status === 'completed' || post.analysis_status === 'failed') {
+          return post
+        }
+      }
+      throw new Error("L’analyse prend plus de temps que prévu. Le suivi continuera dans Posts.")
+    },
+    async refreshPending() {
+      const pending = this.items.filter(
+        (post) => post.analysis_status === 'pending' || post.analysis_status === 'processing',
+      )
+      await Promise.all(
+        pending.map(async (post) => {
+          try {
+            this.replacePost(await getPost(post.id, post.workspace_id))
+          } catch {
+            // A workspace switch can make an old polling request inaccessible.
+          }
+        }),
+      )
+    },
+    async refreshSelectedAnalysis() {
+      const post = this.selected
+      if (!post || !['pending', 'processing'].includes(post.analysis_status)) return
+      try {
+        this.replacePost(await getPost(post.id, post.workspace_id))
+      } catch {
+        // The regular detail error flow handles inaccessible posts.
+      }
+    },
+    replacePost(post: Post) {
+      const index = this.items.findIndex((item) => item.id === post.id)
+      if (index >= 0) this.items[index] = post
+      if (this.selected?.id === post.id) this.selected = post
+    },
   },
 })

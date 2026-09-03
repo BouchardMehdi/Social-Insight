@@ -830,6 +830,33 @@ th {
   text-transform: capitalize;
 }
 
+.analysis-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: rgba(245, 184, 91, 0.12);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.analysis-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 92px;
+  padding: 14px;
+  border-radius: 8px;
+  background: rgba(245, 184, 91, 0.08);
+}
+
+.analysis-progress p {
+  margin: 5px 0 0;
+  color: #9fb1c7;
+}
+
 .status-completed {
   color: #8ff4d3 !important;
 }

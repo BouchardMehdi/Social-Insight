@@ -10,7 +10,7 @@ from app.services.posts import PostService
 router = APIRouter(prefix="/posts")
 
 
-@router.post("", response_model=PostRead, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PostRead, status_code=status.HTTP_202_ACCEPTED)
 def create_post(
     payload: PostCreate,
     context: WorkspaceContext = Depends(get_workspace_context),

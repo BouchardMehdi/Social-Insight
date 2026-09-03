@@ -1,3 +1,5 @@
+from time import sleep
+
 from fastapi.testclient import TestClient
 
 
@@ -12,8 +14,19 @@ def create_post(
         "/api/posts",
         json={"platform": platform, "author": author, "content": content},
     )
-    assert response.status_code == 201
-    return response.json()
+    assert response.status_code == 202
+    created = response.json()
+    assert created["analysis_status"] == "pending"
+
+    for _ in range(100):
+        detail = client.get(f"/api/posts/{created['id']}")
+        assert detail.status_code == 200
+        post = detail.json()
+        if post["analysis_status"] in {"completed", "failed"}:
+            assert post["analysis_status"] == "completed"
+            return post
+        sleep(0.01)
+    raise AssertionError("The asynchronous analysis did not complete in time.")
 
 
 def test_create_post_runs_nlp_and_normalizes_platform(client: TestClient) -> None:
@@ -35,6 +48,21 @@ def test_create_post_runs_nlp_and_normalizes_platform(client: TestClient) -> Non
     assert post["keywords"]
     assert post["created_at"]
     assert post["inserted_at"]
+
+
+def test_create_post_returns_pending_job_immediately(client: TestClient) -> None:
+    response = client.post(
+        "/api/posts",
+        json={
+            "platform": "twitter",
+            "author": "mehdi",
+            "content": "Une innovation vraiment utile.",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["analysis_status"] == "pending"
+    assert response.json()["keywords"] == []
 
 
 def test_list_posts_supports_filters(client: TestClient) -> None:

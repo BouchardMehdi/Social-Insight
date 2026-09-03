@@ -6,6 +6,7 @@ from google.cloud import bigquery
 from app.config.settings import Settings
 from app.core.exceptions import RepositoryError, StorageConfigurationError
 from app.repositories.base import PostRepository
+from app.schemas.nlp import AnalysisStatus, AnalyzeResponse
 from app.schemas.posts import PostFilters, PostRead
 from app.schemas.stats import ActivityPoint, SentimentDistribution, SummaryStats, TopKeyword
 
@@ -35,6 +36,95 @@ class BigQueryPostRepository(PostRepository):
     def create_post(self, post: PostRead) -> PostRead:
         self.create_posts([post], replace=False)
         return post
+
+    def set_analysis_status(
+        self,
+        workspace_id: str,
+        post_id: str,
+        status: AnalysisStatus,
+        error: str | None = None,
+    ) -> bool:
+        sql = f"""
+            UPDATE `{self.table_id}`
+            SET analysis_status = @status, analysis_error = @error
+            WHERE workspace_id = @workspace_id AND id = @post_id
+        """
+        return self._run_update(
+            sql,
+            [
+                bigquery.ScalarQueryParameter("status", "STRING", status),
+                bigquery.ScalarQueryParameter("error", "STRING", error),
+                bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id),
+                bigquery.ScalarQueryParameter("post_id", "STRING", post_id),
+            ],
+        )
+
+    def complete_post_analysis(
+        self, workspace_id: str, post_id: str, analysis: AnalyzeResponse
+    ) -> bool:
+        sql = f"""
+            UPDATE `{self.table_id}`
+            SET
+                language = @language,
+                language_confidence = @language_confidence,
+                sentiment = @sentiment,
+                sentiment_confidence = @sentiment_confidence,
+                keywords = @keywords,
+                model_version = @model_version,
+                analysis_status = 'completed',
+                analysis_error = NULL
+            WHERE workspace_id = @workspace_id AND id = @post_id
+        """
+        return self._run_update(
+            sql,
+            [
+                bigquery.ScalarQueryParameter("language", "STRING", analysis.language),
+                bigquery.ScalarQueryParameter(
+                    "language_confidence", "FLOAT64", analysis.language_confidence
+                ),
+                bigquery.ScalarQueryParameter("sentiment", "STRING", analysis.sentiment),
+                bigquery.ScalarQueryParameter(
+                    "sentiment_confidence", "FLOAT64", analysis.sentiment_confidence
+                ),
+                bigquery.ArrayQueryParameter("keywords", "STRING", analysis.keywords),
+                bigquery.ScalarQueryParameter(
+                    "model_version", "STRING", analysis.model_version
+                ),
+                bigquery.ScalarQueryParameter("workspace_id", "STRING", workspace_id),
+                bigquery.ScalarQueryParameter("post_id", "STRING", post_id),
+            ],
+        )
+
+    def list_incomplete_posts(self, limit: int = 1000) -> list[PostRead]:
+        sql = f"""
+            SELECT
+                id,
+                workspace_id,
+                platform,
+                author,
+                content,
+                language,
+                language_confidence,
+                sentiment,
+                sentiment_confidence,
+                keywords,
+                model_version,
+                analysis_status,
+                analysis_error,
+                created_at,
+                inserted_at
+            FROM `{self.table_id}`
+            WHERE analysis_status IN ('pending', 'processing')
+            ORDER BY inserted_at ASC
+            LIMIT @limit
+        """
+        rows = self.client.query(
+            sql,
+            job_config=bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("limit", "INT64", limit)]
+            ),
+        ).result()
+        return [self._row_to_post(row) for row in rows]
 
     def create_posts(self, posts: list[PostRead], *, replace: bool = False) -> int:
         if not posts:
@@ -143,6 +233,7 @@ class BigQueryPostRepository(PostRepository):
             SELECT keyword, COUNT(*) AS count
             FROM `{self.table_id}`, UNNEST(keywords) AS keyword
             WHERE workspace_id = @workspace_id
+              AND COALESCE(analysis_status, 'completed') = 'completed'
             GROUP BY keyword
             ORDER BY count DESC, keyword ASC
             LIMIT @limit
@@ -163,6 +254,7 @@ class BigQueryPostRepository(PostRepository):
             SELECT sentiment, COUNT(*) AS count
             FROM `{self.table_id}`
             WHERE workspace_id = @workspace_id
+              AND COALESCE(analysis_status, 'completed') = 'completed'
             GROUP BY sentiment
         """
         rows = self.client.query(
@@ -185,6 +277,7 @@ class BigQueryPostRepository(PostRepository):
             SELECT FORMAT_DATE('%F', DATE(created_at)) AS date, COUNT(*) AS count
             FROM `{self.table_id}`
             WHERE workspace_id = @workspace_id
+              AND COALESCE(analysis_status, 'completed') = 'completed'
             GROUP BY date
             ORDER BY date DESC
             LIMIT @limit
@@ -282,6 +375,7 @@ class BigQueryPostRepository(PostRepository):
             params.append(bigquery.ScalarQueryParameter("platform", "STRING", filters.platform))
         if filters.sentiment:
             conditions.append("sentiment = @sentiment")
+            conditions.append("COALESCE(analysis_status, 'completed') = 'completed'")
             params.append(bigquery.ScalarQueryParameter("sentiment", "STRING", filters.sentiment))
         if filters.keyword:
             conditions.append("@keyword IN UNNEST(keywords)")
@@ -290,6 +384,22 @@ class BigQueryPostRepository(PostRepository):
             )
 
         return (f"WHERE {' AND '.join(conditions)}" if conditions else ""), params
+
+    def _run_update(
+        self,
+        sql: str,
+        params: list[bigquery.ScalarQueryParameter | bigquery.ArrayQueryParameter],
+    ) -> bool:
+        try:
+            job = self.client.query(
+                sql,
+                job_config=bigquery.QueryJobConfig(query_parameters=params),
+            )
+            job.result()
+            affected_rows = getattr(job, "num_dml_affected_rows", None)
+            return affected_rows is None or int(affected_rows) > 0
+        except GoogleAPICallError as exc:
+            raise RepositoryError("BigQuery post update failed.", details=str(exc)) from exc
 
     @staticmethod
     def _row_to_post(row: bigquery.table.Row) -> PostRead:

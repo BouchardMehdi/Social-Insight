@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Annotated
 
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.config.settings import Settings, get_settings
@@ -14,6 +14,7 @@ from app.repositories.base import PostRepository
 from app.repositories.bigquery import BigQueryPostRepository
 from app.repositories.memory import InMemoryPostRepository
 from app.schemas.auth import UserRecord, WorkspaceContext
+from app.services.analysis_tasks import AnalysisTaskManager
 from app.services.auth import AuthService
 from app.services.nlp import NLPAnalyzer, SpacyNLPAnalyzer
 from app.services.posts import PostService
@@ -76,8 +77,16 @@ def get_workspace_context(
     return WorkspaceContext(user=user, workspace=workspace)
 
 
-def get_post_service() -> PostService:
-    return PostService(repository=get_post_repository(), analyzer=get_nlp_analyzer())
+def get_analysis_task_manager(request: Request) -> AnalysisTaskManager:
+    return request.app.state.analysis_task_manager
+
+
+def get_post_service(request: Request) -> PostService:
+    return PostService(
+        repository=get_post_repository(),
+        analyzer=get_nlp_analyzer(),
+        task_manager=get_analysis_task_manager(request),
+    )
 
 
 def get_stats_service() -> StatsService:

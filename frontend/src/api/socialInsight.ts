@@ -29,8 +29,10 @@ export async function createPost(payload: PostCreatePayload): Promise<Post> {
   return data
 }
 
-export async function getPost(id: string): Promise<Post> {
-  const { data } = await api.get<Post>(`/posts/${id}`)
+export async function getPost(id: string, workspaceId?: string): Promise<Post> {
+  const { data } = await api.get<Post>(`/posts/${id}`, {
+    headers: workspaceId ? { 'X-Workspace-ID': workspaceId } : undefined,
+  })
   return data
 }
 

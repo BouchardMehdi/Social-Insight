@@ -84,7 +84,7 @@ def test_workspaces_are_isolated(anonymous_client: TestClient) -> None:
         json={"platform": "twitter", "author": "ada", "content": "Une innovation utile."},
     )
 
-    assert created.status_code == 201
+    assert created.status_code == 202
     assert anonymous_client.get("/api/posts", headers=first_headers).json()["total"] == 1
     assert anonymous_client.get("/api/posts", headers=second_headers).json()["total"] == 0
 

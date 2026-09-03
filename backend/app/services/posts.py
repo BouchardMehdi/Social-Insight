@@ -3,16 +3,22 @@ from uuid import uuid4
 
 from app.repositories.base import PostRepository
 from app.schemas.posts import PostCreate, PostFilters, PostListResponse, PostRead
+from app.services.analysis_tasks import AnalysisTaskManager
 from app.services.nlp import NLPAnalyzer
 
 
 class PostService:
-    def __init__(self, repository: PostRepository, analyzer: NLPAnalyzer) -> None:
+    def __init__(
+        self,
+        repository: PostRepository,
+        analyzer: NLPAnalyzer,
+        task_manager: AnalysisTaskManager,
+    ) -> None:
         self.repository = repository
         self.analyzer = analyzer
+        self.task_manager = task_manager
 
     def create_post(self, workspace_id: str, payload: PostCreate) -> PostRead:
-        analysis = self.analyzer.analyze(payload.content)
         now = datetime.now(UTC)
         post = PostRead(
             id=str(uuid4()),
@@ -20,18 +26,20 @@ class PostService:
             platform=payload.platform.lower(),
             author=payload.author,
             content=payload.content,
-            language=analysis.language,
-            language_confidence=analysis.language_confidence,
-            sentiment=analysis.sentiment,
-            sentiment_confidence=analysis.sentiment_confidence,
-            keywords=analysis.keywords,
-            model_version=analysis.model_version,
-            analysis_status=analysis.analysis_status,
+            language="unknown",
+            language_confidence=0,
+            sentiment="neutral",
+            sentiment_confidence=0,
+            keywords=[],
+            model_version=getattr(self.analyzer, "model_version", "pending"),
+            analysis_status="pending",
             analysis_error=None,
             created_at=now,
             inserted_at=now,
         )
-        return self.repository.create_post(post)
+        persisted = self.repository.create_post(post)
+        self.task_manager.submit(persisted)
+        return persisted
 
     def list_posts(self, workspace_id: str, filters: PostFilters) -> PostListResponse:
         posts, total = self.repository.list_posts(workspace_id, filters)

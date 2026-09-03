@@ -54,7 +54,7 @@ const sentimentChart = computed<ChartConfiguration>(() => ({
     <ErrorBanner v-if="analytics.error" title="Analytics indisponibles" :message="analytics.error" />
 
     <div class="stats-grid">
-      <StatCard label="Posts analysés" :value="analytics.summary.total_posts" tone="cyan" :icon="MessageSquareText" />
+      <StatCard label="Posts ingérés" :value="analytics.summary.total_posts" tone="cyan" :icon="MessageSquareText" />
       <StatCard label="Auteurs uniques" :value="analytics.summary.total_authors" tone="green" :icon="Users" />
       <StatCard label="Sentiments classés" :value="sentimentTotal" tone="rose" :icon="SmilePlus" />
       <StatCard label="Keywords suivis" :value="analytics.keywords.length" tone="amber" :icon="Hash" />

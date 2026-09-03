@@ -19,9 +19,12 @@ const form = reactive({
 })
 const loading = ref(false)
 const analyzing = ref(false)
+const tracking = ref(false)
 const created = ref(false)
 const error = ref('')
 const analysis = ref<AnalyzeResponse | null>(null)
+const analysisStatus = ref<'idle' | 'pending' | 'processing' | 'completed' | 'failed'>('idle')
+const analysisError = ref('')
 
 async function previewAnalysis() {
   if (!form.content.trim()) return
@@ -29,6 +32,8 @@ async function previewAnalysis() {
   error.value = ''
   try {
     analysis.value = await analyzeText(form.content)
+    analysisStatus.value = 'completed'
+    analysisError.value = ''
     toasts.info('Analyse terminée', 'Le contenu a été analysé sans insertion.')
   } catch (caughtError) {
     error.value = getApiErrorMessage(caughtError, "Impossible d'analyser le texte")
@@ -42,8 +47,34 @@ async function submitPost() {
   loading.value = true
   created.value = false
   error.value = ''
+  analysisError.value = ''
   try {
     const post = await posts.create(form)
+    analysis.value = null
+    analysisStatus.value = post.analysis_status
+    form.author = ''
+    form.content = ''
+    created.value = true
+    toasts.info('Post enregistré', `L’analyse du post ${post.platform} continue en arrière-plan.`)
+    void trackAnalysis(post.id, post.workspace_id)
+  } catch (caughtError) {
+    error.value = getApiErrorMessage(caughtError, 'Impossible de créer le post')
+    toasts.error('Création impossible', error.value)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function trackAnalysis(postId: string, workspaceId: string) {
+  tracking.value = true
+  try {
+    const post = await posts.waitForAnalysis(postId, workspaceId)
+    analysisStatus.value = post.analysis_status
+    if (post.analysis_status === 'failed') {
+      analysisError.value = post.analysis_error ?? 'Le moteur NLP a rencontré une erreur.'
+      toasts.error('Analyse échouée', analysisError.value)
+      return
+    }
     analysis.value = {
       language: post.language,
       language_confidence: post.language_confidence,
@@ -53,15 +84,12 @@ async function submitPost() {
       model_version: post.model_version,
       analysis_status: post.analysis_status,
     }
-    form.author = ''
-    form.content = ''
-    created.value = true
-    toasts.success('Post créé', `Le post ${post.platform} a été analysé et enregistré.`)
+    toasts.success('Analyse terminée', 'Les résultats NLP sont maintenant disponibles.')
   } catch (caughtError) {
-    error.value = getApiErrorMessage(caughtError, 'Impossible de créer le post')
-    toasts.error('Création impossible', error.value)
+    analysisError.value = getApiErrorMessage(caughtError, "Impossible de suivre l’analyse")
+    toasts.error('Suivi interrompu', analysisError.value)
   } finally {
-    loading.value = false
+    tracking.value = false
   }
 }
 </script>
@@ -102,23 +130,43 @@ async function submitPost() {
           ></textarea>
         </label>
         <div class="button-row">
-          <button class="secondary-button" type="button" :disabled="analyzing || loading" @click="previewAnalysis">
+          <button
+            class="secondary-button"
+            type="button"
+            :disabled="analyzing || loading || tracking"
+            @click="previewAnalysis"
+          >
             <Sparkles :size="16" />
             <span>{{ analyzing ? 'Analyse...' : 'Analyser' }}</span>
           </button>
-          <button class="primary-button" type="submit" :disabled="loading">
+          <button class="primary-button" type="submit" :disabled="loading || tracking">
             <Send :size="16" />
             <span>{{ loading ? 'Envoi...' : 'Créer' }}</span>
           </button>
         </div>
-        <p v-if="created" class="success-text">Post créé et analysé.</p>
+        <p v-if="created" class="success-text">Post enregistré, analyse en arrière-plan.</p>
       </form>
 
       <section class="panel analysis-panel">
         <header class="panel-header">
           <h2>Résultat NLP</h2>
         </header>
-        <div v-if="analysis" class="analysis-result">
+        <div
+          v-if="analysisStatus === 'pending' || analysisStatus === 'processing' || tracking"
+          class="analysis-progress"
+        >
+          <span class="spinner"></span>
+          <div>
+            <strong>Analyse {{ analysisStatus === 'processing' ? 'en cours' : 'en attente' }}</strong>
+            <p>Vous pouvez continuer à utiliser l’application.</p>
+          </div>
+        </div>
+        <ErrorBanner
+          v-else-if="analysisStatus === 'failed'"
+          title="Analyse échouée"
+          :message="analysisError"
+        />
+        <div v-else-if="analysis" class="analysis-result">
           <div>
             <span class="stat-label">Langue</span>
             <strong>{{ analysis.language }} · {{ Math.round(analysis.language_confidence * 100) }} %</strong>
