@@ -676,6 +676,22 @@ cd backend
 poetry run ruff check app tests
 ```
 
+Lancer les tests unitaires frontend :
+
+```bash
+cd frontend
+npm run test:unit
+```
+
+Lancer les tests end-to-end avec l'application Docker deja demarree :
+
+```bash
+docker compose up -d --build
+cd frontend
+npx playwright install chromium
+npm run test:e2e
+```
+
 Les tests couvrent :
 
 - healthcheck ;
@@ -688,6 +704,11 @@ Les tests couvrent :
 - seed local ;
 - seed BigQuery ;
 - erreurs standardisees.
+
+Les tests frontend couvrent le rendu des resultats NLP, les filtres envoyes a l'API
+et le suivi d'une analyse asynchrone. Les tests Playwright valident la redirection vers
+la connexion, l'authentification du compte de demonstration et la creation complete
+d'un post jusqu'a l'affichage de son analyse.
 
 ### Limite du worker integre
 
@@ -703,8 +724,10 @@ Le workflow `.github/workflows/ci.yml` execute :
 
 - `ruff check app tests` ;
 - `pytest` ;
+- `npm run test:unit` ;
 - `npm run build` ;
-- `docker compose build`.
+- `docker compose build` ;
+- `npm run test:e2e` sur la stack Docker.
 
 La CI se lance sur :
 
@@ -828,6 +851,14 @@ Build frontend :
 ```bash
 cd frontend
 npm run build
+```
+
+Tests frontend :
+
+```bash
+cd frontend
+npm run test:unit
+npm run test:e2e
 ```
 
 Build Docker :
